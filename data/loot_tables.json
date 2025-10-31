@@ -1,0 +1,17 @@
+{
+    "Goblin": [
+        {"item": "Gold Coins", "chance": 1.0, "min": 1, "max": 5},
+        {"item": "Health Potion", "chance": 0.1, "min": 1, "max": 1},
+        {"item": "Goblin Chain Mail", "chance": 0.01, "min": 1, "max": 1}
+    ],
+    "Skeleton": [
+        {"item": "Gold Coins", "chance": 1.0, "min": 5, "max": 10},
+        {"item": "Mana Potion", "chance": 0.1, "min": 1, "max": 1},
+        {"item": "Bone Mace", "chance": 0.01, "min": 1, "max": 1}        
+    ],
+    "Wolf": [
+        {"item": "Gold Coins", "chance": 1.0, "min": 10, "max": 15},
+        {"item": "Raw Wolf Meat", "chance": 0.25, "min": 1, "max": 1},
+        {"item": "Wolf Skin Cape", "chance": 0.01, "min": 1, "max": 1}
+    ]
+}
