@@ -95,6 +95,11 @@ class GameManager:
                         print("Please select a creature to fight")
 
             elif self.state == "creature_select":
+                if hasattr(self, "return_button") and self.return_button.collidepoint(event.pos):
+                    print("[UI] Returning to Camp.")
+                    self.state = "home"
+                    return
+                
                 for name, rect in self.creature_buttons.items():
                     if rect.collidepoint(event.pos):
                         print(f"{name} selected!")
@@ -118,6 +123,20 @@ class GameManager:
 
                         break
             
+            elif self.state == "combat":
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    for label, rect in self.combat_buttons.items():
+                        if rect.collidepoint(event.pos):
+                            if label == "Cast Spell":
+                                pass
+                            elif label == "Use Item":
+                                pass
+                            elif label == "Inventory":
+                                pass
+                            elif label == "Return to Camp":
+                                self.state = "home"
+                                print("[UI] Returning to home screen")
+
     def update(self):
         if self.state == "combat" and self.combat:            
             if self.combat.update():
@@ -134,6 +153,8 @@ class GameManager:
             self.draw_home()
         elif self.state == "creature_select":
             self.draw_creature_select()
+        elif self.state == "combat":
+            self.draw_combat_screen()
 
     def draw_title(self):
         self.screen.blit(self.title_image, (0, 0))
@@ -208,7 +229,118 @@ class GameManager:
             label = self.font.render(name, True, WHITE)
             self.screen.blit(label, (rect.x + rect.width // 2 - label.get_width() // 2,
                                      rect.y + rect.height // 2 - label.get_height() // 2))
-            
+
+        self.return_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, y_start + len(self.creature_select_options) * 70 + 40, 200, 50)
+        pygame.draw.rect(self.screen, (100, 100, 100), self.return_button)
+        label = self.font.render("Return to Camp", True, WHITE)
+        self.screen.blit(label, (self.return_button.x + self.return_button.width // 2 - label.get_width() // 2,
+                                 self.return_button.y + self.return_button.height // 2 - label.get_height() // 2))
+
+    def draw_combat_screen(self):
+        self.screen.fill(BLACK)
+        font = self.font
+        small_font = pygame.font.Font(None, 24)
+
+        player_x = 50
+        player_y = 40
+
+        bar_width = 160
+        bar_height = 15
+
+
+        #player hp/mp
+        player_text = font.render(f"{self.player.name} (Lv {self.player.level})", True, WHITE)
+        self.screen.blit(player_text, (player_x, player_y))
+        player_hp_ratio = self.player.stats.hp / self.player.stats.max_hp
+        pygame.draw.rect(self.screen, RED, (player_x, player_y + 30, bar_width, bar_height))
+        pygame.draw.rect(self.screen, GREEN, (player_x, player_y + 30, int(bar_width * player_hp_ratio), bar_height))
+
+        player_mp_ratio = self.player.stats.mp / self.player.stats.max_mp
+        pygame.draw.rect(self.screen, BLUE, (player_x, player_y + 50, bar_width, bar_height))
+        pygame.draw.rect(self.screen, CYAN, (player_x, player_y + 50, int(bar_width * player_mp_ratio), bar_height))
+
+        player_sprite_rect = pygame.Rect(player_x, 120, 200, 180)
+        if self.player.sprite:
+            sprite = self.player.sprite
+            sprite_x = player_sprite_rect.x + (player_sprite_rect.width - sprite.get_width()) // 2
+            sprite_y = player_sprite_rect.y + (player_sprite_rect.height - sprite.get_height()) // 2
+            self.screen.blit(sprite, (sprite_x, sprite_y))
+        
+        else:
+            pygame.draw.rect(self.screen, (30, 30, 30), player_sprite_rect, border_radius = 8)
+            pygame.draw.rect(self.screen, (80, 80, 80), player_sprite_rect, width = 2, border_radius = 8)
+
+        #monster hp/mp
+
+        enemy_x = SCREEN_WIDTH - 250
+        enemy_y = 40
+
+
+        monster_text = font.render(f"{self.current_monster.name} (Lvl {self.current_monster.level})", True, WHITE)
+        self.screen.blit(monster_text, (enemy_x, enemy_y))
+        monster_hp_ratio = self.current_monster.stats.hp / self.current_monster.stats.max_hp
+        pygame.draw.rect(self.screen, RED, (enemy_x, enemy_y + 30, bar_width, bar_height))
+        pygame.draw.rect(self.screen, GREEN, (enemy_x, enemy_y + 30, int(bar_width * monster_hp_ratio), bar_height))
+
+        monster_mp_ratio = self.current_monster.stats.mp / self.current_monster.stats.max_mp
+        pygame.draw.rect(self.screen, BLUE, (enemy_x, enemy_y + 50, bar_width, bar_height))
+        pygame.draw.rect(self.screen, CYAN, (enemy_x, enemy_y + 50, int(bar_width * monster_mp_ratio), bar_height))
+
+        enemy_sprite_rect = pygame.Rect(enemy_x, 120, 200, 180)
+        if self.current_monster.sprite:
+            sprite = self.current_monster.sprite
+            sprite_x = enemy_sprite_rect.x + (enemy_sprite_rect.width - sprite.get_width()) // 2
+            sprite_y = enemy_sprite_rect.y + (enemy_sprite_rect.height - sprite.get_height()) // 2
+            self.screen.blit(sprite, (sprite_x, sprite_y))
+        else:
+            pygame.draw.rect(self.screen, (30, 30, 30), enemy_sprite_rect, border_radius = 8)
+            pygame.draw.rect(self.screen, (80, 80, 80), enemy_sprite_rect, width = 2, border_radius = 8)
+
+
+        #combat/loot log settings
+        log_width = (SCREEN_WIDTH - 100) // 2
+        log_height = 170
+        log_y = SCREEN_HEIGHT - 250
+        left_x = 50
+        right_x = left_x + log_width + 10
+
+        #loot log box
+        loot_log_box = pygame.Rect(right_x, log_y, log_width, log_height)
+        pygame.draw.rect(self.screen, (20, 20, 20), loot_log_box, border_radius = 8)
+        pygame.draw.rect(self.screen, (80, 80, 80), loot_log_box, width = 2, border_radius = 8)
+        
+        #combat log box
+        combat_log_box = pygame.Rect(left_x, log_y, log_width, log_height)
+        pygame.draw.rect(self.screen, (20, 20, 20), combat_log_box, border_radius = 8)
+        pygame.draw.rect(self.screen, (80, 80, 80), combat_log_box, width = 2, border_radius = 8)
+             
+        #combat log text                             
+        for i, line in enumerate(self.combat.combat_log[-5:]):
+            text = small_font.render(line, True, WHITE)
+            self.screen.blit(text, (combat_log_box.x + 10, combat_log_box.y + 10 + i * 24))
+
+
+        #loot log text
+        for i, line in enumerate(self.combat.loot_log[-5:]):
+            text = small_font.render(line, True, WHITE)
+            self.screen.blit(text, (loot_log_box.x + 10, loot_log_box.y + 10 + i * 24))
+
+        button_labels = ["Attack", "Cast Spell", "Use Item", "Inventory", "Home"]
+        self.combat_buttons = {}
+        button_width, button_height = 150, 40
+        spacing = 20
+        total_width = len(button_labels) * (button_width + spacing) - spacing
+        start_x = SCREEN_WIDTH // 2 - total_width // 2
+        y_pos = SCREEN_HEIGHT - 50
+
+        for i, label in enumerate(button_labels):
+            rect = pygame.Rect(start_x + i * (button_width + spacing), y_pos, button_width, button_height)
+            self.combat_buttons[label] = rect
+            pygame.draw.rect(self.screen, LIGHT_GRAY, rect)
+            text = font.render(label, True, WHITE)
+            self.screen.blit(text, (rect.x + rect.width // 2 - text.get_width() // 2,
+                                    rect.y + rect.height // 2 - text.get_height() // 2))
+
     def get_frame(self, sheet, frame_rect):
         frame = sheet.subsurface(frame_rect)
 

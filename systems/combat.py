@@ -5,6 +5,7 @@ class CombatManager:
         self.player = player
         self.monster = monster
         self.combat_log = []
+        self.loot_log = []
         self.combat_active = True
         self.loot_system = loot_system
 
@@ -41,9 +42,15 @@ class CombatManager:
             exp = self.monster.exp_reward
             drops = self.loot_system.generate_loot(self.monster.name)
             print("You found:", drops)
+            for drop in drops:
+                self.player.add_item(drop["item"], drop["quantity"])
+
+                self.loot_log.append(f"+{drop['quantity']} {drop['item']}")
+                self.loot_log = self.loot_log[-5:]
             self.player.gain_exp(exp)
             self.combat_active = False
             something_happened = True
+            
 
         if not self.player.is_alive():
             self.combat_log.append(f"{self.player.name} was defeated!")

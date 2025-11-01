@@ -1,5 +1,6 @@
 from entities.stats import Stats
 from data.exp_table import exp_table
+import pygame
 
 class Player:
     def __init__(self, name = "Bjorn"):
@@ -7,6 +8,33 @@ class Player:
         self.stats = Stats()
         self.level = 1
         self.exp = 0
+        self.inventory = {}
+
+        try:
+            self.sprite = pygame.image.load("assets/images/bjorn1.png").convert_alpha()
+        except:
+            self.sprite = None
+            print("⚠️ Player sprite missing — using placeholder.")
+
+        if self.sprite:
+            self.sprite = pygame.transform.scale(self.sprite, (180, 160))
+
+    def add_item(self, item_name, quantity = 1):
+        if item_name in self.inventory:
+            self.inventory[item_name] += quantity
+        else:
+            self.inventory[item_name] = quantity
+
+        print(f"[INVENTORY] +{quantity} {item_name} (Total: {self.inventory[item_name]})")
+
+    def print_inventory(self):
+        print("\n=== INVENTORY ===")
+        if not self.inventory:
+            print("Empty")
+        else:
+            for item, qty in self.inventory.items():
+                print(f"{item}: {qty}")
+        print("=================\n")
 
     def is_alive(self):
         return self.stats.hp > 0
