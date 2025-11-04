@@ -1,0 +1,24 @@
+{
+    "Goblin": {
+        "level": 1,
+        "base_hp": 50,
+        "base_mp": 10,
+        "strength": 5,
+        "dexterity": 3,
+        "constitution": 5,
+        "intelligence": 2,
+        "exp_reward": 5,
+        "sprite": "goblin1_cut.png"
+    },
+    "Skeleton": {
+        "level": 2,
+        "base_hp": 75,
+        "base_mp": 15,
+        "strength": 7,
+        "dexterity": 5,
+        "constitution": 6,
+        "intelligence": 3,
+        "exp_reward": 7,
+        "sprite": "skeleton1.png"
+    }
+}

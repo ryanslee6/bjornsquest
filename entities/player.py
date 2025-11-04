@@ -8,10 +8,11 @@ class Player:
         self.stats = Stats()
         self.level = 1
         self.exp = 0
+        #self.exp_to_level = 15
         self.inventory = {}
 
         try:
-            self.sprite = pygame.image.load("assets/images/bjorn1.png").convert_alpha()
+            self.sprite = pygame.image.load("assets/images/bjorn1_cut.png").convert_alpha()
         except:
             self.sprite = None
             print("⚠️ Player sprite missing — using placeholder.")
@@ -68,3 +69,21 @@ class Player:
             print(f"HP/MP fully restored: {self.stats.hp}/{self.stats.max_hp} HP, {self.stats.mp}/{self.stats.max_mp} MP")
         if not leveled_up:
             print(f"{self.name} gained {amount} exp!")
+
+    @property
+    def exp_to_level(self):
+        if self.level >= len(exp_table):
+            return 0
+        return exp_table[self.level]
+    
+    def exp_progress(self):
+        #exp required up to previous level
+        prev_required = exp_table[self.level - 1] if self.level > 1 else 0
+
+        next_required = exp_table[self.level]
+
+        exp_into_level = self.exp - prev_required
+
+        exp_needed = next_required - prev_required
+
+        return exp_into_level, exp_needed

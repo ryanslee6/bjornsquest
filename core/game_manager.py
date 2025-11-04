@@ -11,36 +11,38 @@ class GameManager:
     def __init__(self, screen):
         self.screen = screen
         self.font = pygame.font.SysFont(None, 36)
+        self.float_font = pygame.font.Font(None, 42)
         self.state = "title"
         self.title_image = self.load_image("bq_titlescreen.png")
         self.home_image = self.load_image("bq_campsite.png")
         self.loot_system = LootSystem()
 
+        self.combat_bg = pygame.image.load("assets/images/combat_bg1.png").convert_alpha()
+        self.combat_bg = pygame.transform.scale(self.combat_bg, (SCREEN_WIDTH, SCREEN_HEIGHT - 52))
+        
+        self.ui_border = pygame.image.load("assets/images/combat_border.png").convert_alpha()
+        self.ui_border = pygame.transform.scale(self.ui_border, (SCREEN_WIDTH, 30))
+
         sprite_path = os.path.join("assets", "images", "bjorn_char_1.png")
-        print("DEBUG: Loading sprite sheet from:", sprite_path)
+        
         
         if os.path.exists(sprite_path):
-            print(f"DEBUG: Loading sprite sheet from: {sprite_path}")
             self.player_sprite_sheet1 = pygame.image.load(sprite_path).convert_alpha()
-            print(f"✅ Sprite sheet loaded. Size: {self.player_sprite_sheet1.get_size()}")
-
-            grid_debug = self.player_sprite_sheet1.copy()
-            for y in range(0, grid_debug.get_height(), 64):
-                pygame.draw.line(grid_debug, (255, 0, 0), (0, y), (grid_debug.get_width(), y), 1)
-            for x in range(0, grid_debug.get_width(), 64):
-                pygame.draw.line(grid_debug, (0, 255, 0), (x, 0), (x, grid_debug.get_height()), 1)
-            pygame.image.save(grid_debug, "debug_grid.png")
-            print("✅ Saved debug_grid.png — open it to see the sprite layout.")
-            # --- End of debug block ---
-
         else:
             print(f"[Warning] Missing sprite sheet: {sprite_path}")
             self.player_sprite_sheet1 = pygame.Surface((64, 64))
             self.player_sprite_sheet1.fill((255, 0, 255))
 
         self.player = Player()
-        self.current_monster = Monster(level = 1)
+        self.current_monster = None
         self.combat = CombatManager(self.player, self.current_monster, self.loot_system)
+        self.combat.auto_callback = lambda: self.auto_combat_enabled
+
+        self.auto_combat_unlocked = True
+        self.auto_combat_enabled = False
+
+        if self.combat:
+            self.combat.auto_combat_enabled = self.auto_combat_enabled
 
         button_width = 150
         button_height = 50
@@ -106,9 +108,9 @@ class GameManager:
 
                         if self.state == "creature_select":
                             if name == "Goblin":
-                                self.current_monster = Monster(name = "Goblin", level = 1)
+                                self.current_monster = Monster("Goblin")
                             elif name == "Skeleton":
-                                self.current_monster = Monster(name = "Skeleton", level = 2)
+                                self.current_monster = Monster("Skeleton")
                             elif name == "Wolf":
                                 self.current_monster = Monster(name = "Wolf", level = 3)
                             else:
@@ -127,13 +129,29 @@ class GameManager:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     for label, rect in self.combat_buttons.items():
                         if rect.collidepoint(event.pos):
-                            if label == "Cast Spell":
+                            if label == "Attack":
+                                self.combat.player_initiated = True
+                                print("Combat started!")
+                                return
+                            elif label == "Auto":
+                                if not self.auto_combat_unlocked:
+                                    print("Auto-Combat isn't unlocked yet!")
+                                    #add popup/tooltip instead of console output
+                                    return
+                                self.auto_combat_enabled = not self.auto_combat_enabled
+                                print(f"Auto-Combat is now {'ON' if self.auto_combat_enabled else 'OFF'}")
+                                
+                                if self.auto_combat_enabled and not self.combat.player_initiated:
+                                    self.combat.player_initiated = True
+                                
+                                return
+                            elif label == "Cast Spell":
                                 pass
                             elif label == "Use Item":
                                 pass
                             elif label == "Inventory":
                                 pass
-                            elif label == "Return to Camp":
+                            elif label == "Home":
                                 self.state = "home"
                                 print("[UI] Returning to home screen")
 
@@ -145,6 +163,9 @@ class GameManager:
             if not self.combat.combat_active:
                 print("✅ Combat ended! Returning to creature select.")
                 self.state = "creature_select"
+
+            if self.combat is not None:
+                self.combat.auto_combat_enabled = self.auto_combat_enabled
 
     def draw(self):
         if self.state == "title":
@@ -238,28 +259,77 @@ class GameManager:
 
     def draw_combat_screen(self):
         self.screen.fill(BLACK)
+        self.screen.blit(self.combat_bg, (0, 0))
+        
+        
         font = self.font
         small_font = pygame.font.Font(None, 24)
+        tiny_font = pygame.font.Font(None, 18)
+        label_font = tiny_font
+        label_color = WHITE
 
-        player_x = 50
-        player_y = 40
+        player_x = 38
+        player_y = 10
 
         bar_width = 160
         bar_height = 15
 
+        #semi-transparent background for unit frame
+        frame_width = bar_width + 45
+        frame_height = 90
+        frame_x = player_x - 35
+        frame_y = player_y - 2
+        
+        unit_frame_surf = pygame.Surface((frame_width, frame_height), pygame.SRCALPHA)
+        unit_frame_surf.fill((0, 0, 0, 160))
+        self.screen.blit(unit_frame_surf, (frame_x, frame_y))
 
-        #player hp/mp
+        #player name
         player_text = font.render(f"{self.player.name} (Lv {self.player.level})", True, WHITE)
         self.screen.blit(player_text, (player_x, player_y))
+        
+        
+        #player hp
         player_hp_ratio = self.player.stats.hp / self.player.stats.max_hp
         pygame.draw.rect(self.screen, RED, (player_x, player_y + 30, bar_width, bar_height))
         pygame.draw.rect(self.screen, GREEN, (player_x, player_y + 30, int(bar_width * player_hp_ratio), bar_height))
+        hp_text = tiny_font.render(f"{self.player.stats.hp}/{self.player.stats.max_hp}", True, WHITE)
+        hp_text_x = player_x + bar_width // 2 - hp_text.get_width() // 2
+        hp_text_y = player_y + 30 + bar_height // 2 - hp_text.get_height() // 2 + 2
+        self.screen.blit(hp_text, (hp_text_x, hp_text_y))
+        hp_label = label_font.render("HP", True, label_color)
+        self.screen.blit(hp_label, (player_x - hp_label.get_width() - 8, player_y + 30))
 
+
+        #player mp
         player_mp_ratio = self.player.stats.mp / self.player.stats.max_mp
         pygame.draw.rect(self.screen, BLUE, (player_x, player_y + 50, bar_width, bar_height))
         pygame.draw.rect(self.screen, CYAN, (player_x, player_y + 50, int(bar_width * player_mp_ratio), bar_height))
+        mp_text = tiny_font.render(f"{self.player.stats.mp}/{self.player.stats.max_mp}", True, WHITE)
+        mp_text_x = player_x + bar_width // 2 - mp_text.get_width() // 2
+        mp_text_y = player_y + 50 + bar_height // 2 - mp_text.get_height() // 2 + 2
+        self.screen.blit(mp_text, (mp_text_x, mp_text_y))
+        mp_label = label_font.render("MP", True, label_color)
+        self.screen.blit(mp_label, (player_x - mp_label.get_width() - 8, player_y + 50))
 
-        player_sprite_rect = pygame.Rect(player_x, 120, 200, 180)
+
+        #exp bar
+        exp_into_level, exp_needed = self.player.exp_progress()
+        exp_ratio = exp_into_level / exp_needed
+        exp_percent = int(exp_ratio * 100)
+        exp_bar_y = player_y + 70
+
+        pygame.draw.rect(self.screen, (50, 50, 50), (player_x, exp_bar_y, bar_width, bar_height), border_radius = 6)
+        pygame.draw.rect(self.screen, (255, 215, 0), (player_x, exp_bar_y, int(bar_width * exp_ratio), bar_height), border_radius = 6)
+        exp_text = tiny_font.render(f"{exp_percent}%", True, WHITE)
+        self.screen.blit(exp_text, (player_x + bar_width // 2 - exp_text.get_width() // 2,
+                                    exp_bar_y + bar_height // 2 - exp_text.get_height() // 2 + 2))
+
+        exp_label = label_font.render("EXP", True, label_color)
+        self.screen.blit(exp_label, (player_x - exp_label.get_width() - 8, exp_bar_y))
+
+
+        player_sprite_rect = pygame.Rect(player_x + 100, 240, 200, 180)
         if self.player.sprite:
             sprite = self.player.sprite
             sprite_x = player_sprite_rect.x + (player_sprite_rect.width - sprite.get_width()) // 2
@@ -274,11 +344,11 @@ class GameManager:
 
         enemy_x = SCREEN_WIDTH - 250
         enemy_y = 40
+        monster = self.combat.current_monster
 
-
-        monster_text = font.render(f"{self.current_monster.name} (Lvl {self.current_monster.level})", True, WHITE)
+        monster_text = font.render(f"{monster.name} (Lvl {monster.level})", True, WHITE)
         self.screen.blit(monster_text, (enemy_x, enemy_y))
-        monster_hp_ratio = self.current_monster.stats.hp / self.current_monster.stats.max_hp
+        monster_hp_ratio = monster.stats.hp / monster.stats.max_hp
         pygame.draw.rect(self.screen, RED, (enemy_x, enemy_y + 30, bar_width, bar_height))
         pygame.draw.rect(self.screen, GREEN, (enemy_x, enemy_y + 30, int(bar_width * monster_hp_ratio), bar_height))
 
@@ -286,12 +356,17 @@ class GameManager:
         pygame.draw.rect(self.screen, BLUE, (enemy_x, enemy_y + 50, bar_width, bar_height))
         pygame.draw.rect(self.screen, CYAN, (enemy_x, enemy_y + 50, int(bar_width * monster_mp_ratio), bar_height))
 
-        enemy_sprite_rect = pygame.Rect(enemy_x, 120, 200, 180)
+        enemy_sprite_rect = pygame.Rect(enemy_x - 100, 240, 200, 180)
+
         if self.current_monster.sprite:
             sprite = self.current_monster.sprite
-            sprite_x = enemy_sprite_rect.x + (enemy_sprite_rect.width - sprite.get_width()) // 2
-            sprite_y = enemy_sprite_rect.y + (enemy_sprite_rect.height - sprite.get_height()) // 2
-            self.screen.blit(sprite, (sprite_x, sprite_y))
+            
+            scaled_sprite = pygame.transform.scale(sprite, (enemy_sprite_rect.width, enemy_sprite_rect.height))
+             
+            sprite_x = enemy_sprite_rect.x + (enemy_sprite_rect.width - scaled_sprite.get_width()) // 2
+            sprite_y = enemy_sprite_rect.y + (enemy_sprite_rect.height - scaled_sprite.get_height()) // 2
+            
+            self.screen.blit(scaled_sprite, (sprite_x, sprite_y))
         else:
             pygame.draw.rect(self.screen, (30, 30, 30), enemy_sprite_rect, border_radius = 8)
             pygame.draw.rect(self.screen, (80, 80, 80), enemy_sprite_rect, width = 2, border_radius = 8)
@@ -325,19 +400,61 @@ class GameManager:
             text = small_font.render(line, True, WHITE)
             self.screen.blit(text, (loot_log_box.x + 10, loot_log_box.y + 10 + i * 24))
 
-        button_labels = ["Attack", "Cast Spell", "Use Item", "Inventory", "Home"]
+        for t in self.combat.floating_text_player:
+            text_str = t.get("text", "")
+            color = t.get("color", (255, 255, 255))
+            alpha = t.get("alpha", 255)
+
+            text_surface = self.float_font.render(text_str, True, color)
+            text_surface.set_alpha(max(0, alpha))
+
+            player_center_x = 38 + 100
+            player_center_y = 240
+
+            draw_x = player_center_x + t.get("offset_x", 0)
+            draw_y = player_center_y - 40 + t.get("offset_y", 0)
+
+            self.screen.blit(text_surface, (draw_x, draw_y))
+
+        for t in self.combat.floating_text_enemy:
+            text_str = t.get("text", "")
+            color = t.get("color", (255, 255, 255))
+            alpha = t.get("alpha", 255)
+
+            text_surface = self.float_font.render(text_str, True, color)
+            text_surface.set_alpha(max(0, alpha))
+
+            enemy_center_x = SCREEN_WIDTH - 250 + 100
+            enemy_center_y = 240
+
+            draw_x = enemy_center_x + t.get("offset_x", 0)
+            draw_y = enemy_center_y - 40 + t.get("offset_y", 0)
+
+            self.screen.blit(text_surface, (draw_x, draw_y))
+
+        border_y = SCREEN_HEIGHT - 70
+        self.screen.blit(self.ui_border, (0, border_y))
+
+
+        button_labels = ["Attack", "Auto", "Cast Spell", "Use Item", "Inventory", "Home"]
         self.combat_buttons = {}
-        button_width, button_height = 150, 40
-        spacing = 20
+        button_width, button_height = 130, 40
+        spacing = 8
         total_width = len(button_labels) * (button_width + spacing) - spacing
         start_x = SCREEN_WIDTH // 2 - total_width // 2
-        y_pos = SCREEN_HEIGHT - 50
+        y_pos = SCREEN_HEIGHT - 46
 
         for i, label in enumerate(button_labels):
             rect = pygame.Rect(start_x + i * (button_width + spacing), y_pos, button_width, button_height)
             self.combat_buttons[label] = rect
             pygame.draw.rect(self.screen, LIGHT_GRAY, rect)
-            text = font.render(label, True, WHITE)
+            
+            #auto button text toggle
+            display_label = label
+            if label == "Auto":
+                display_label = "Auto: On" if self.auto_combat_enabled else "Auto: Off"
+            
+            text = font.render(display_label, True, WHITE)
             self.screen.blit(text, (rect.x + rect.width // 2 - text.get_width() // 2,
                                     rect.y + rect.height // 2 - text.get_height() // 2))
 
