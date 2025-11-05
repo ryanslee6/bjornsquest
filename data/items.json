@@ -1,0 +1,17 @@
+{
+    "health_potion_small": {
+        "name": "Small Health Potion",
+        "type": "consumable",
+        "description": "Heals a small amount of health.",
+        "heal_amount": 25,
+        "rarity": "common",
+        "stackable": true
+    },
+
+    "gold": {
+        "name": "Gold Coins",
+        "type": "currency",
+        "description": "Shiny coins earned from your travels.",
+        "stackable": true
+    }
+}

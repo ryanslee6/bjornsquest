@@ -20,13 +20,23 @@ class Player:
         if self.sprite:
             self.sprite = pygame.transform.scale(self.sprite, (180, 160))
 
-    def add_item(self, item_name, quantity = 1):
-        if item_name in self.inventory:
-            self.inventory[item_name] += quantity
+    def add_item(self, item_id, quantity = 1):
+        if item_id in self.inventory:
+            self.inventory[item_id] += quantity
         else:
-            self.inventory[item_name] = quantity
+            self.inventory[item_id] = quantity
 
-        print(f"[INVENTORY] +{quantity} {item_name} (Total: {self.inventory[item_name]})")
+        print(f"[INVENTORY] +{quantity} {item_id} (Total: {self.inventory[item_id]})")
+
+    def use_item(self, item_id, item_manager):
+        item = item_manager.get(item_id)
+
+        item.use(self)
+
+        if item.stackable:
+            self.inventory[item_id] -= 1
+            if self.inventory[item_id] <= 0:
+                del self.inventory[item_id]
 
     def print_inventory(self):
         print("\n=== INVENTORY ===")

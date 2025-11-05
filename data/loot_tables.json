@@ -1,7 +1,7 @@
 {
     "Goblin": [
-        {"item": "Gold Coins", "chance": 1.0, "min": 1, "max": 5},
-        {"item": "Health Potion", "chance": 0.1, "min": 1, "max": 1},
+        {"item": "gold", "chance": 1.0, "min": 1, "max": 5},
+        {"item": "health_potion_small", "chance": 0.1, "min": 1, "max": 1},
         {"item": "Goblin Chain Mail", "chance": 0.01, "min": 1, "max": 1}
     ],
     "Skeleton": [

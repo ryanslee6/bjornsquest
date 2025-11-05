@@ -5,6 +5,8 @@ from entities.player import Player
 from entities.monster import Monster
 from systems.combat import CombatManager
 from systems.loot_system import LootSystem
+from core.ui_mgr import *
+from core.item_mgr import ItemManager
 
 
 class GameManager:
@@ -16,6 +18,9 @@ class GameManager:
         self.title_image = self.load_image("bq_titlescreen.png")
         self.home_image = self.load_image("bq_campsite.png")
         self.loot_system = LootSystem()
+        self.items = ItemManager()
+        self.inventory_window = InventoryWindow(self)
+        self.show_inventory = False
 
         self.combat_bg = pygame.image.load("assets/images/combat_bg1.png").convert_alpha()
         self.combat_bg = pygame.transform.scale(self.combat_bg, (SCREEN_WIDTH, SCREEN_HEIGHT - 52))
@@ -80,6 +85,22 @@ class GameManager:
             return surface
 
     def handle_event(self, event):
+        #if event.type == pygame.MOUSEBUTTONDOWN:
+        #    print("[CLICK EVENT]", event.pos, event.button)
+        
+        if self.show_inventory and event.type == pygame.MOUSEBUTTONDOWN:
+               # Right-click uses item
+            if event.button == 3 and self.inventory_window.click(event.pos, event.button):
+                return
+
+             # Left-click outside closes inventory
+            if event.button == 1 and self.inventory_window.click_outside(event.pos):
+                self.show_inventory = False
+                return
+
+            # ✅ Left-click inside inventory does nothing (prevents closing)
+            return 
+
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.state == "title":
                 if self.start_button.collidepoint(event.pos):
@@ -150,7 +171,8 @@ class GameManager:
                             elif label == "Use Item":
                                 pass
                             elif label == "Inventory":
-                                pass
+                                self.show_inventory = not self.show_inventory
+                                return
                             elif label == "Home":
                                 self.state = "home"
                                 print("[UI] Returning to home screen")
@@ -457,6 +479,11 @@ class GameManager:
             text = font.render(display_label, True, WHITE)
             self.screen.blit(text, (rect.x + rect.width // 2 - text.get_width() // 2,
                                     rect.y + rect.height // 2 - text.get_height() // 2))
+
+
+        #inventory
+        if self.show_inventory:
+            self.inventory_window.draw(self.screen)
 
     def get_frame(self, sheet, frame_rect):
         frame = sheet.subsurface(frame_rect)
