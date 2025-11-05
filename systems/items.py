@@ -32,6 +32,23 @@ class ConsumableItem(Item):
             player.stats.hp = min(player.stats.max_hp, player.stats.hp + self.heal_amount)
             print(f"{player.name} healed for {self.heal_amount} HP!")
 
+            if hasattr(player.game, "player_draw_x"):
+                px = player.game.player_draw_x + player.sprite.get_width() // 2
+                py = player.game.player_draw_y + player.sprite.get_height() // 2 + 55
+            else:    
+                px = 200
+                py = 240
+            
+            player.game.combat.spawn_heal_particles(px, py)
+
+            player.game.combat.floating_text_player.append({
+                "text": f"+{self.heal_amount} HP",
+                "color": (50, 255, 50),  # green heal
+                "offset_x": 0,
+                "offset_y": 0,
+                "alpha": 255
+            })
+
     def tooltip_text(self):
         base = super().tooltip_text()
         base.insert(2, f"Heals: {self.heal_amount} HP")

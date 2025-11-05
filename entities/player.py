@@ -3,13 +3,16 @@ from data.exp_table import exp_table
 import pygame
 
 class Player:
-    def __init__(self, name = "Bjorn"):
+    def __init__(self, name = "Bjorn", item_manager = None):
         self.name = name
         self.stats = Stats()
         self.level = 1
         self.exp = 0
         #self.exp_to_level = 15
-        self.inventory = {}
+        self.inventory = []
+        self.regen_timer = 0
+
+        self.item_manager = item_manager
 
         try:
             self.sprite = pygame.image.load("assets/images/bjorn1_cut.png").convert_alpha()
@@ -21,22 +24,48 @@ class Player:
             self.sprite = pygame.transform.scale(self.sprite, (180, 160))
 
     def add_item(self, item_id, quantity = 1):
-        if item_id in self.inventory:
-            self.inventory[item_id] += quantity
-        else:
-            self.inventory[item_id] = quantity
+        #if item_id in self.inventory:
+        #    self.inventory[item_id] += quantity
+        #else:
+        #    self.inventory[item_id] = quantity
 
-        print(f"[INVENTORY] +{quantity} {item_id} (Total: {self.inventory[item_id]})")
-
-    def use_item(self, item_id, item_manager):
-        item = item_manager.get(item_id)
-
-        item.use(self)
+        #print(f"[INVENTORY] +{quantity} {item_id} (Total: {self.inventory[item_id]})")
+        item = self.item_manager.get(item_id)
 
         if item.stackable:
-            self.inventory[item_id] -= 1
-            if self.inventory[item_id] <= 0:
-                del self.inventory[item_id]
+            for entry in self.inventory:
+                if entry["id"] == item_id and entry.get("stackable", True):
+                    entry["qty"] += quantity
+                    break
+            else:
+                self.inventory.append({"id": item_id, "qty": quantity, "stackable": True})
+        else:
+            for _ in range(quantity):
+                self.inventory.append({"id": item_id, "stackable": False})
+
+
+    def use_item(self, item_id, item_manager):
+        #item = item_manager.get(item_id)
+
+        #item.use(self)
+
+        #if item.stackable:
+        #    self.inventory[item_id] -= 1
+        #    if self.inventory[item_id] <= 0:
+        #        del self.inventory[item_id]
+        for entry in self.inventory:
+            if entry["id"] == item_id:
+                item = item_manager.get(item_id)
+                item.use(self)
+
+                if item.stackable:
+                    entry["qty"] -= 1
+                    if entry["qty"] <= 0:
+                        self.inventory.remove(entry)
+                else:
+                    self.inventory.remove(entry)
+                return
+        print(f"[ERROR] Tried to use {item_id}, but player doesn't have it!")
 
     def print_inventory(self):
         print("\n=== INVENTORY ===")

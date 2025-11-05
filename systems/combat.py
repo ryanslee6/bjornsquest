@@ -2,6 +2,7 @@ import time
 import pygame
 import random
 from entities.monster import Monster
+from random import randint
 
 
 class CombatManager:
@@ -27,6 +28,8 @@ class CombatManager:
 
         self.post_respawn_delay = 1000 #ms
         self.ready_time = None
+
+        self.heal_particles = []
 
         #self.combat = CombatManager(self.player, self.current_monster, self.loot_system)
         #self.combat.auto_combat_enabled = self.auto_combat_enabled
@@ -153,6 +156,18 @@ class CombatManager:
             self.floating_text_enemy.append(entry)
         else:
             self.floating_text_player.append(entry)
+
+    def spawn_heal_particles(self, x, y):
+         for _ in range(16):
+              self.heal_particles.append({
+                   "x": x + randint(-10, 10),
+                   "y": y + randint(-10, 10),
+                   "vx": randint(-1, 1),
+                   "vy": -2,
+                   "alpha": 255,
+                   "size": randint(2, 4),
+                   "color": (80, 255, 80),
+              })
              
 
 

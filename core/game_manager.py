@@ -21,6 +21,7 @@ class GameManager:
         self.items = ItemManager()
         self.inventory_window = InventoryWindow(self)
         self.show_inventory = False
+        
 
         self.combat_bg = pygame.image.load("assets/images/combat_bg1.png").convert_alpha()
         self.combat_bg = pygame.transform.scale(self.combat_bg, (SCREEN_WIDTH, SCREEN_HEIGHT - 52))
@@ -38,7 +39,8 @@ class GameManager:
             self.player_sprite_sheet1 = pygame.Surface((64, 64))
             self.player_sprite_sheet1.fill((255, 0, 255))
 
-        self.player = Player()
+        self.player = Player(item_manager = self.items)
+        self.player.game = self
         self.current_monster = None
         self.combat = CombatManager(self.player, self.current_monster, self.loot_system)
         self.combat.auto_callback = lambda: self.auto_combat_enabled
@@ -178,6 +180,38 @@ class GameManager:
                                 print("[UI] Returning to home screen")
 
     def update(self):
+        #hp regen buffer system
+        regen = self.player.stats.get_hp_regen()
+
+        if self.state == "combat":
+            regen *= 0.05
+
+        #only regen if not full hp
+        if self.player.stats.hp < self.player.stats.max_hp:
+            #accumulate fractional regen over time
+            self.player.stats._hp_regen_buffer += regen
+
+            #when buffer reaches 1 or more, convert to integer healing
+            if self.player.stats._hp_regen_buffer >= 1:
+                heal_amount = int(self.player.stats._hp_regen_buffer)
+                self.player.stats._hp_regen_buffer -= heal_amount
+
+                #apply healing
+                self.player.stats.hp = min(
+                    self.player.stats.max_hp,
+                    self.player.stats.hp + heal_amount
+                )
+
+                #floating heal text on regen
+                self.combat.floating_text_player.append({
+                    "text": f"+{heal_amount}",
+                    "color": (50, 255, 50),
+                    "offset_x": 40,
+                    "offset_y": 0,
+                    "alpha": 255
+                })
+            
+        
         if self.state == "combat" and self.combat:            
             if self.combat.update():
                 print(self.combat.combat_log[-1])
@@ -188,6 +222,7 @@ class GameManager:
 
             if self.combat is not None:
                 self.combat.auto_combat_enabled = self.auto_combat_enabled
+
 
     def draw(self):
         if self.state == "title":
@@ -283,7 +318,6 @@ class GameManager:
         self.screen.fill(BLACK)
         self.screen.blit(self.combat_bg, (0, 0))
         
-        
         font = self.font
         small_font = pygame.font.Font(None, 24)
         tiny_font = pygame.font.Font(None, 18)
@@ -357,11 +391,15 @@ class GameManager:
             sprite_x = player_sprite_rect.x + (player_sprite_rect.width - sprite.get_width()) // 2
             sprite_y = player_sprite_rect.y + (player_sprite_rect.height - sprite.get_height()) // 2
             self.screen.blit(sprite, (sprite_x, sprite_y))
-        
+
+            self.player_draw_x = sprite_x
+            self.player_draw_y = sprite_y
+
         else:
             pygame.draw.rect(self.screen, (30, 30, 30), player_sprite_rect, border_radius = 8)
             pygame.draw.rect(self.screen, (80, 80, 80), player_sprite_rect, width = 2, border_radius = 8)
 
+        
         #monster hp/mp
 
         enemy_x = SCREEN_WIDTH - 250
@@ -437,6 +475,23 @@ class GameManager:
             draw_y = player_center_y - 40 + t.get("offset_y", 0)
 
             self.screen.blit(text_surface, (draw_x, draw_y))
+
+        #heal particle effects
+        for p in list(self.combat.heal_particles):
+            #move
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+
+            #fade
+            p["alpha"] -= 5
+            if p["alpha"] <= 0:
+                self.combat.heal_particles.remove(p)
+                continue
+            
+            #draw
+            s = pygame.Surface((p["size"], p["size"]), pygame.SRCALPHA)
+            s.fill((*p["color"], max(0, p["alpha"])))
+            self.screen.blit(s, (p["x"], p["y"]))
 
         for t in self.combat.floating_text_enemy:
             text_str = t.get("text", "")

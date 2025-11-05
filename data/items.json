@@ -13,5 +13,14 @@
         "type": "currency",
         "description": "Shiny coins earned from your travels.",
         "stackable": true
+    },
+
+    "goblin_chain_mail": {
+        "name": "Goblin Chain Mail",
+        "type": "Chest Armor",
+        "defense": 3,
+        "description": "A crude piece of goblin armor",
+        "rarity": "uncommon",
+        "stackable": false
     }
 }
