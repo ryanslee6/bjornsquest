@@ -116,11 +116,21 @@ class CombatManager:
             exp = self.current_monster.exp_reward
             drops = self.loot_system.generate_loot(self.current_monster.name)
             print("You found:", drops)
+            
             for drop in drops:
-                self.player.add_item(drop["item"], drop["quantity"])
+                item_name = drop["item"]
+                qty = drop["quantity"]
 
-                self.loot_log.append(f"+{drop['quantity']} {drop['item']}")
+                if item_name.lower() == "gold coins":
+                    self.player.gold += qty
+                    print(f"[LOOT] +{qty} Gold Coins (Total: {self.player.gold})")
+                    self.loot_log.append(f"+{qty} Gold Coins")
+                    continue
+                else:                    
+                    self.player.add_item(item_name, qty)
+                    self.loot_log.append(f"+{qty} {item_name}")      
                 self.loot_log = self.loot_log[-5:]
+            
             self.player.gain_exp(exp)
             self.combat_active = True
             something_happened = True

@@ -22,5 +22,20 @@
         "description": "A crude piece of goblin armor",
         "rarity": "uncommon",
         "stackable": false
-    }
+    },
+    "mana_potion_small": {
+        "name": "Small Mana Potion",
+        "type": "consumable",
+        "description": "Restores a small amount of mana.",
+        "restore_amount": 15,
+        "rarity": "common",
+        "stackable": true
+    },
+    "Auto Attack": {
+        "name": "Auto Attack",
+        "type": "account unlock",
+        "rarity": "epic",
+        "description": "Unlocks automatic combat mode.",
+        "stackable": false
+}
 }

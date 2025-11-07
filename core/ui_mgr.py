@@ -33,6 +33,9 @@ class InventoryWindow:
         title = self.font.render("Inventory", True, self.text_color)
         screen.blit(title, (x + 10, y + 10))
 
+        gold_text = self.font.render(f"Gold: {self.game.player.gold}", True, (255, 215, 0))
+        screen.blit(gold_text, (x + self.width - gold_text.get_width() - 20, y + 10))
+
         self.item_rects = []
         y_offset = 40
 
@@ -146,6 +149,97 @@ class InventoryWindow:
 
 
     def click_outside(self, pos):
+        x = SCREEN_WIDTH // 2 - self.width // 2
+        y = SCREEN_HEIGHT // 2 - self.height // 2
+        rect = pygame.Rect(x, y, self.width, self.height)
+        return not rect.collidepoint(pos)
+    
+class VendorWindow:
+    def __init__(self, game):
+        self.game = game
+        self.width = 400
+        self.height = 360
+        self.bg_color = (35, 35, 45)
+        self.border_color = (200, 200, 200)
+        self.text_color = (255, 255, 255)
+        self.font = pygame.font.Font(None, 24)
+        self.item_rects = []
+
+        self.items_for_sale = [
+            {"id": "health_potion_small", "price": 10},
+            {"id": "mana_potion_small", "price": 12},
+            #{"id": "vial_of_water", "price": 5},
+            {"id": "Auto Attack", "price": 5}
+        ]
+
+    def draw(self, screen):
+        from settings import RARITY_COLORS
+        x = SCREEN_WIDTH // 2 - self.width // 2
+        y = SCREEN_HEIGHT // 2 - self.height // 2
+
+        pygame.draw.rect(screen, self.bg_color, (x, y, self.width, self.height))
+        pygame.draw.rect(screen, self.border_color, (x, y, self.width, self.height), 2)
+
+        title = self.font.render("Vendor", True, self.text_color)
+
+
+        total_gold = self.game.player.get_total_gold()
+        gold_text = self.font.render(f"Gold: {total_gold}", True, (255, 220, 100))
+        screen.blit(gold_text, (x + self.width - 140, y+ 10))
+
+        y_offset = 50
+        self.item_rects.clear()
+        for entry in self.items_for_sale:
+            item = self.game.items.get(entry["id"])
+            
+            
+            rect = pygame.Rect(x + 10, y + y_offset, self.width - 20, 30)
+            pygame.draw.rect(screen, (60, 60, 60), rect)
+            pygame.draw.rect(screen, (100, 100, 100), rect, 1)
+
+            if item and hasattr(item, "rarity"):
+                rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
+                name_text = item.name
+            else:
+                rarity_color = (255, 255, 255)
+                name_text = entry["id"]
+
+            item_text = self.font.render(f"{name_text} - {entry['price']}g", True, rarity_color)
+            screen.blit(item_text, (rect.x + 8, rect.y + 5))
+
+            self.item_rects.append((rect, entry))
+            y_offset += 36
+
+        # Close text
+        close_text = self.font.render("Click outside to close", True, (160, 160, 160))
+        screen.blit(close_text, (x + 10, y + self.height - 25))
+
+    def handle_click(self, pos):
+        for rect, entry in self.item_rects:
+            if rect.collidepoint(pos):                
+                price = entry["price"]
+                item_id = entry["id"]
+                
+                if self.game.player.get_total_gold() < price:
+                    print("[VENDOR] Not enough gold!")
+                    return True
+                
+                self.game.player.spend_gold(price)
+
+                if item_id.lower() == "auto attack":
+                    if not self.game.player.auto_combat_unlocked:
+                        self.game.player.auto_combat_unlocked = True
+                        print("[VENDOR] Auto Combat unlocked!")
+                    else:
+                        print("[VENDOR] Auto Combat already unlocked.")
+                    return True
+                
+                self.game.player.add_item(item_id, 1)
+                print(f"[VENDOR] Purchased {item_id} for {price} gold.")
+                return True
+        return False
+    
+    def is_click_outside(self, pos):
         x = SCREEN_WIDTH // 2 - self.width // 2
         y = SCREEN_HEIGHT // 2 - self.height // 2
         rect = pygame.Rect(x, y, self.width, self.height)

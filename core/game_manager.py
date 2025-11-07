@@ -21,6 +21,7 @@ class GameManager:
         self.items = ItemManager()
         self.inventory_window = InventoryWindow(self)
         self.show_inventory = False
+        self.vendor_window = VendorWindow(self)
         
 
         self.combat_bg = pygame.image.load("assets/images/combat_bg1.png").convert_alpha()
@@ -45,7 +46,7 @@ class GameManager:
         self.combat = CombatManager(self.player, self.current_monster, self.loot_system)
         self.combat.auto_callback = lambda: self.auto_combat_enabled
 
-        self.auto_combat_unlocked = True
+        
         self.auto_combat_enabled = False
 
         if self.combat:
@@ -56,7 +57,7 @@ class GameManager:
         bottom_margin = 15
         gap = 25
 
-        buttons = ["Fight", "Gather", "Craft", "Inventory"]
+        buttons = ["Fight", "Gather", "Craft", "Inventory", "Shop"]
         num_buttons = len(buttons)
         total_width = num_buttons * button_width + (num_buttons - 1) * gap
         start_x = (SCREEN_WIDTH - total_width) // 2
@@ -115,9 +116,24 @@ class GameManager:
             
             elif self.state == "home":
                 for text, rect in self.buttons.items():
-                    if rect.collidepoint(event.pos) and text == "Fight":
-                        self.state = "creature_select"
-                        print("Please select a creature to fight")
+                    if rect.collidepoint(event.pos):
+                        
+                        if text == "Fight":
+                            self.state = "creature_select"
+                            print("Please select a creature to fight")
+                            return
+                    
+                        elif text == "Inventory":
+                            self.show_inventory = not self.show_inventory
+                            print("[UI] Toggling Inventory Window")
+                            return
+                        
+                        elif text == "Shop":
+                            self.state = "vendor"
+                            print("[UI] Entering vendor screen")
+                            return
+
+            
 
             elif self.state == "creature_select":
                 if hasattr(self, "return_button") and self.return_button.collidepoint(event.pos):
@@ -157,7 +173,7 @@ class GameManager:
                                 print("Combat started!")
                                 return
                             elif label == "Auto":
-                                if not self.auto_combat_unlocked:
+                                if not self.player.auto_combat_unlocked:
                                     print("Auto-Combat isn't unlocked yet!")
                                     #add popup/tooltip instead of console output
                                     return
@@ -178,6 +194,18 @@ class GameManager:
                             elif label == "Home":
                                 self.state = "home"
                                 print("[UI] Returning to home screen")
+
+            elif self.state == "vendor":
+                #implement vendor screen clicks
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if self.vendor_window.handle_click(event.pos):
+                        return
+                    
+                    if self.vendor_window and self.vendor_window.is_click_outside(event.pos):
+                        print("[UI] Exiting vendor screen")
+                        self.state = "home"
+                        return
+
 
     def update(self):
         #hp regen buffer system
@@ -227,7 +255,7 @@ class GameManager:
     def draw(self):
         if self.state == "title":
             self.draw_title()
-        elif self.state == "home":
+        elif self.state in ("home", "vendor"):
             self.draw_home()
         elif self.state == "creature_select":
             self.draw_creature_select()
@@ -259,38 +287,52 @@ class GameManager:
             self.screen.blit(label, (rect.x + rect.width // 2 - label.get_width() // 2,
                                      rect.y + rect.height // 2 - label.get_height() // 2))
             
-        if hasattr(self, 'player_sprite_sheet1') and self.player_sprite_sheet1:
-            frame_width = 124
-            frame_height = 140 + 28
+        if self.show_inventory or self.state == "vendor":
+            overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 100))
+            self.screen.blit(overlay, (0, 0))
 
-            frame_x = 5.9 * 54 - 21   # adjust these
-            frame_y = 7 * 80 - 125 # adjust these
+        if self.state == "vendor" and hasattr(self, "vendor_window"):
+            self.vendor_window.draw(self.screen)
 
-            frame_rect = pygame.Rect(frame_x, frame_y, frame_width * 3, frame_height * 3)
-            player_frame = self.player_sprite_sheet1.subsurface(frame_rect).copy()
+        if self.show_inventory:
+            self.inventory_window.draw(self.screen)
+        
+        
+        
+        
+        #if hasattr(self, 'player_sprite_sheet1') and self.player_sprite_sheet1:
+        #    frame_width = 124
+        #    frame_height = 140 + 28
+        #
+        #    frame_x = 5.9 * 54 - 21   # adjust these
+        #    frame_y = 7 * 80 - 125 # adjust these
 
-            target_width = 100
-            target_height = 175
-            scaled_frame = pygame.transform.scale(player_frame, (target_width, target_height))
+        #    frame_rect = pygame.Rect(frame_x, frame_y, frame_width * 3, frame_height * 3)
+        #    player_frame = self.player_sprite_sheet1.subsurface(frame_rect).copy()
+
+        #    target_width = 100
+        #    target_height = 175
+        #    scaled_frame = pygame.transform.scale(player_frame, (target_width, target_height))
 
             # Check if the frame is empty
-            non_transparent_pixels = [
-                player_frame.get_at((x, y))
-                for x in range(frame_width) for y in range(frame_height)
-                if player_frame.get_at((x, y)).a > 0
-            ]
+        #    non_transparent_pixels = [
+        #        player_frame.get_at((x, y))
+        #        for x in range(frame_width) for y in range(frame_height)
+        #        if player_frame.get_at((x, y)).a > 0
+        #    ]
 
-            if not non_transparent_pixels:
-                print(f"[Debug] Frame at ({frame_x}, {frame_y}) is fully transparent!")
+        #    if not non_transparent_pixels:
+        #        print(f"[Debug] Frame at ({frame_x}, {frame_y}) is fully transparent!")
 
-            offset_x = -200
-            offset_y = 80
+        #    offset_x = -200
+        #    offset_y = 80
             
-            player_pos = (SCREEN_WIDTH // 2 - target_width // 2 + offset_x,
-                          SCREEN_HEIGHT // 2 - target_height // 2 + offset_y)
-            self.screen.blit(scaled_frame, player_pos)
-        else:
-            print("[Warning] Player sprite sheet not loaded yet.")
+        #    player_pos = (SCREEN_WIDTH // 2 - target_width // 2 + offset_x,
+        #                  SCREEN_HEIGHT // 2 - target_height // 2 + offset_y)
+        #    self.screen.blit(scaled_frame, player_pos)
+        #else:
+        #    print("[Warning] Player sprite sheet not loaded yet.")
         
 
     def draw_creature_select(self):
@@ -411,6 +453,14 @@ class GameManager:
         monster_hp_ratio = monster.stats.hp / monster.stats.max_hp
         pygame.draw.rect(self.screen, RED, (enemy_x, enemy_y + 30, bar_width, bar_height))
         pygame.draw.rect(self.screen, GREEN, (enemy_x, enemy_y + 30, int(bar_width * monster_hp_ratio), bar_height))
+        hp_text = f"{int(self.current_monster.stats.hp)}/{int(self.current_monster.stats.max_hp)}"
+        hp_text_surf = tiny_font.render(hp_text, True, WHITE)
+
+        text_x = enemy_x + (bar_width // 2) - (hp_text_surf.get_width() // 2)
+        text_y = enemy_y + 32 + (bar_height // 2) - (hp_text_surf.get_height() // 2)
+        self.screen.blit(hp_text_surf, (text_x, text_y))
+
+
 
         monster_mp_ratio = self.current_monster.stats.mp / self.current_monster.stats.max_mp
         pygame.draw.rect(self.screen, BLUE, (enemy_x, enemy_y + 50, bar_width, bar_height))

@@ -20,7 +20,8 @@ class Monster:
             strength = data["strength"],
             dexterity = data["dexterity"],
             constitution = data["constitution"],
-            intelligence = data["intelligence"]
+            intelligence = data["intelligence"],
+            is_player = False
         )
         self.exp_reward = data["exp_reward"]
         self.sprite_path = os.path.join("assets", "images", data["sprite"])

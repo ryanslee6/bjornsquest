@@ -1,7 +1,7 @@
 {
     "Goblin": {
         "level": 1,
-        "base_hp": 50,
+        "base_hp": 10,
         "base_mp": 10,
         "strength": 5,
         "dexterity": 3,
