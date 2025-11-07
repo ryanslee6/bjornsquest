@@ -8,7 +8,7 @@
         "stackable": true
     },
 
-    "gold": {
+    "gold_coins": {
         "name": "Gold Coins",
         "type": "currency",
         "description": "Shiny coins earned from your travels.",

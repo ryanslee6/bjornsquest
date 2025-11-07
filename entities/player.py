@@ -15,7 +15,7 @@ class Player:
         self.item_manager = item_manager
 
         try:
-            self.sprite = pygame.image.load("assets/images/bjorn1_cut.png").convert_alpha()
+            self.sprite = pygame.image.load("assets/images/bjorn1.png").convert_alpha()
         except:
             self.sprite = None
             print("⚠️ Player sprite missing — using placeholder.")

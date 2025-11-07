@@ -19,6 +19,17 @@
         "constitution": 6,
         "intelligence": 3,
         "exp_reward": 7,
-        "sprite": "skeleton1.png"
+        "sprite": "skeleton_clipped.png"
+    },
+    "Wolf": {
+        "level": 3,
+        "base_hp": 100,
+        "base_mp": 20,
+        "strength": 9,
+        "dexterity": 7,
+        "constitution": 7,
+        "intelligence": 4,
+        "exp_reward": 9,
+        "sprite": "wolf1.png"
     }
 }

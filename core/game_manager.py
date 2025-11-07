@@ -135,7 +135,7 @@ class GameManager:
                             elif name == "Skeleton":
                                 self.current_monster = Monster("Skeleton")
                             elif name == "Wolf":
-                                self.current_monster = Monster(name = "Wolf", level = 3)
+                                self.current_monster = Monster("Wolf")
                             else:
                                 self.current_monster = Monster(name = name, level = 1)
 
@@ -385,7 +385,7 @@ class GameManager:
         self.screen.blit(exp_label, (player_x - exp_label.get_width() - 8, exp_bar_y))
 
 
-        player_sprite_rect = pygame.Rect(player_x + 100, 240, 200, 180)
+        player_sprite_rect = pygame.Rect(player_x + 150, 300, 200, 180)
         if self.player.sprite:
             sprite = self.player.sprite
             sprite_x = player_sprite_rect.x + (player_sprite_rect.width - sprite.get_width()) // 2
@@ -416,7 +416,7 @@ class GameManager:
         pygame.draw.rect(self.screen, BLUE, (enemy_x, enemy_y + 50, bar_width, bar_height))
         pygame.draw.rect(self.screen, CYAN, (enemy_x, enemy_y + 50, int(bar_width * monster_mp_ratio), bar_height))
 
-        enemy_sprite_rect = pygame.Rect(enemy_x - 100, 240, 200, 180)
+        enemy_sprite_rect = pygame.Rect(enemy_x - 120, 305, 200, 180)
 
         if self.current_monster.sprite:
             sprite = self.current_monster.sprite
