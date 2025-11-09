@@ -11,7 +11,7 @@ class Player:
         #self.exp_to_level = 15
         self.inventory = []
         self.regen_timer = 0
-        self.gold = 100
+        self.gold = 0
         self.auto_combat_unlocked = False
 
         self.item_manager = item_manager
@@ -92,13 +92,15 @@ class Player:
         base_damage = self.stats.strength
         
         #crit chance
-        if random.random() < self.stats.crit_chance:
+        is_crit = random.random() < self.stats.crit_chance
+        if is_crit:    
             base_damage *= 2
         
         damage = max(0, base_damage - target.stats.armor)
         
         target.stats.hp = max(0, target.stats.hp - damage)
-        return damage
+        
+        return damage, is_crit
     
     def gain_exp(self, amount):
         self.exp += amount

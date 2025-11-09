@@ -1,6 +1,7 @@
 import pygame
 from core.game_manager import GameManager
 from settings import *
+import random
 
 
 def main():
@@ -22,7 +23,9 @@ def main():
     
             game.handle_event(event)
 
-        game.update()
+        dt = clock.tick(60)
+        
+        game.update(dt)
         game.draw()
         pygame.display.flip()
         clock.tick(FPS)

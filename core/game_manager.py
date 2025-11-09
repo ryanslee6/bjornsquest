@@ -207,11 +207,12 @@ class GameManager:
                         return
 
 
-    def update(self):
+    def update(self, dt):
         #hp regen buffer system
         regen = self.player.stats.get_hp_regen()
 
         if self.state == "combat":
+            self.combat.update(dt)
             regen *= 0.05
 
         #only regen if not full hp
@@ -231,17 +232,16 @@ class GameManager:
                 )
 
                 #floating heal text on regen
-                self.combat.floating_text_player.append({
-                    "text": f"+{heal_amount}",
-                    "color": (50, 255, 50),
-                    "offset_x": 40,
-                    "offset_y": 0,
-                    "alpha": 255
-                })
+                self.combat.add_floating_text(
+                    f"+{heal_amount}",
+                    0, 0,
+                    text_type = "heal",
+                    target = "player"
+                )
             
         
         if self.state == "combat" and self.combat:            
-            if self.combat.update():
+            if self.combat.update(dt):
                 print(self.combat.combat_log[-1])
 
             if not self.combat.combat_active:
@@ -251,6 +251,9 @@ class GameManager:
             if self.combat is not None:
                 self.combat.auto_combat_enabled = self.auto_combat_enabled
 
+
+        if hasattr(self, "combat"):
+            self.combat.update_floating_text(dt)
 
     def draw(self):
         if self.state == "title":
@@ -427,7 +430,7 @@ class GameManager:
         self.screen.blit(exp_label, (player_x - exp_label.get_width() - 8, exp_bar_y))
 
 
-        player_sprite_rect = pygame.Rect(player_x + 150, 300, 200, 180)
+        player_sprite_rect = pygame.Rect(player_x + 85, 300, 200, 180)
         if self.player.sprite:
             sprite = self.player.sprite
             sprite_x = player_sprite_rect.x + (player_sprite_rect.width - sprite.get_width()) // 2
@@ -466,7 +469,7 @@ class GameManager:
         pygame.draw.rect(self.screen, BLUE, (enemy_x, enemy_y + 50, bar_width, bar_height))
         pygame.draw.rect(self.screen, CYAN, (enemy_x, enemy_y + 50, int(bar_width * monster_mp_ratio), bar_height))
 
-        enemy_sprite_rect = pygame.Rect(enemy_x - 120, 305, 200, 180)
+        enemy_sprite_rect = pygame.Rect(enemy_x - 85, 305, 200, 180)
 
         if self.current_monster.sprite:
             sprite = self.current_monster.sprite
@@ -510,21 +513,21 @@ class GameManager:
             text = small_font.render(line, True, WHITE)
             self.screen.blit(text, (loot_log_box.x + 10, loot_log_box.y + 10 + i * 24))
 
-        for t in self.combat.floating_text_player:
-            text_str = t.get("text", "")
-            color = t.get("color", (255, 255, 255))
-            alpha = t.get("alpha", 255)
+        #for t in self.combat.floating_text_player:
+        #    text_str = t.get("text", "")
+        #    color = t.get("color", (255, 255, 255))
+        #    alpha = t.get("alpha", 255)
 
-            text_surface = self.float_font.render(text_str, True, color)
-            text_surface.set_alpha(max(0, alpha))
+        #    text_surface = self.float_font.render(text_str, True, color)
+        #    text_surface.set_alpha(max(0, alpha))
 
-            player_center_x = 38 + 100
-            player_center_y = 240
+        #    player_center_x = 38 + 100
+        #    player_center_y = 240
 
-            draw_x = player_center_x + t.get("offset_x", 0)
-            draw_y = player_center_y - 40 + t.get("offset_y", 0)
+        #    draw_x = player_center_x + t.get("offset_x", 0)
+        #    draw_y = player_center_y - 40 + t.get("offset_y", 0)
 
-            self.screen.blit(text_surface, (draw_x, draw_y))
+        #    self.screen.blit(text_surface, (draw_x, draw_y))
 
         #heal particle effects
         for p in list(self.combat.heal_particles):
@@ -543,21 +546,23 @@ class GameManager:
             s.fill((*p["color"], max(0, p["alpha"])))
             self.screen.blit(s, (p["x"], p["y"]))
 
-        for t in self.combat.floating_text_enemy:
-            text_str = t.get("text", "")
-            color = t.get("color", (255, 255, 255))
-            alpha = t.get("alpha", 255)
+        self.combat.draw_floating_text(self.screen)
 
-            text_surface = self.float_font.render(text_str, True, color)
-            text_surface.set_alpha(max(0, alpha))
+        #for t in self.combat.floating_text_enemy:
+        #    text_str = t.get("text", "")
+        #    color = t.get("color", (255, 255, 255))
+        #    alpha = t.get("alpha", 255)
 
-            enemy_center_x = SCREEN_WIDTH - 250 + 100
-            enemy_center_y = 240
+        #    text_surface = self.float_font.render(text_str, True, color)
+        #    text_surface.set_alpha(max(0, alpha))
 
-            draw_x = enemy_center_x + t.get("offset_x", 0)
-            draw_y = enemy_center_y - 40 + t.get("offset_y", 0)
+        #    enemy_center_x = SCREEN_WIDTH - 250 + 100
+        #    enemy_center_y = 240
 
-            self.screen.blit(text_surface, (draw_x, draw_y))
+        #    draw_x = enemy_center_x + t.get("offset_x", 0)
+        #    draw_y = enemy_center_y - 40 + t.get("offset_y", 0)
+
+        #    self.screen.blit(text_surface, (draw_x, draw_y))
 
         border_y = SCREEN_HEIGHT - 70
         self.screen.blit(self.ui_border, (0, border_y))

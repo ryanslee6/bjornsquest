@@ -31,7 +31,7 @@ class Stats:
 
         self.recalc_stats()
 
-        self.crit_chance = 0.05
+        self.crit_chance = 0.55
         self.dodge_chance = 0.05
         self.attack_speed = 1.0
         self.armor = 0

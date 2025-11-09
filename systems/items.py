@@ -41,13 +41,12 @@ class ConsumableItem(Item):
             
             player.game.combat.spawn_heal_particles(px, py)
 
-            player.game.combat.floating_text_player.append({
-                "text": f"+{self.heal_amount} HP",
-                "color": (50, 255, 50),  # green heal
-                "offset_x": 0,
-                "offset_y": 0,
-                "alpha": 255
-            })
+            player.game.combat.add_floating_text(
+                f"+{self.heal_amount} HP",
+                0, 0,
+                target= "player",
+                text_type = "heal"
+            )
 
     def tooltip_text(self):
         base = super().tooltip_text()

@@ -1,6 +1,7 @@
 import time
 import pygame
 import random
+import math
 from entities.monster import Monster
 from random import randint
 
@@ -35,7 +36,7 @@ class CombatManager:
         #self.combat.auto_combat_enabled = self.auto_combat_enabled
 
 
-    def update(self):
+    def update(self, dt):
         if not self.combat_active:
             return False
 
@@ -47,17 +48,17 @@ class CombatManager:
                         return
                     self.ready_time = None
 
-        for t in self.floating_text_player[:]:
-             t["offset_y"] -= 0.5
-             t["alpha"] -= 3
-             if t["alpha"] <= 0:
-                  self.floating_text_player.remove(t)
+        #for t in self.floating_text_player[:]:
+        #     t["offset_y"] -= 0.5
+        #     t["alpha"] -= 3
+        #     if t["alpha"] <= 0:
+        #          self.floating_text_player.remove(t)
 
-        for t in self.floating_text_enemy[:]:
-             t["offset_y"] -= 0.5
-             t["alpha"] -= 3
-             if t["alpha"] <= 0:
-                  self.floating_text_enemy.remove(t)
+        #for t in self.floating_text_enemy[:]:
+        #     t["offset_y"] -= 0.5
+        #     t["alpha"] -= 3
+        #     if t["alpha"] <= 0:
+        #          self.floating_text_enemy.remove(t)
 
         if self.monster_defeated:
             if pygame.time.get_ticks() >= self.respawn_time:
@@ -83,29 +84,39 @@ class CombatManager:
 
         if current_time - self.last_player_attack >= self.player_attack_delay:
             if self.player.is_alive() and self.current_monster.is_alive():
-                dmg = self.player.attack(self.current_monster)
-                self.combat_log.append(f"{self.player.name} hits {self.current_monster.name} for {dmg} damage!")
+                dmg, is_crit = self.player.attack(self.current_monster)
+                if is_crit:
+                    self.combat_log.append(f"{self.player.name} crits {self.current_monster.name} for {dmg} damage!")
+                    text_type = "crit"
+                else:
+                    self.combat_log.append(f"{self.player.name} hits {self.current_monster.name} for {dmg} damage!")
+                    text_type = "damage"
                 self.last_player_attack = current_time
                 something_happened = True
 
                 self.add_floating_text(
                      str(dmg),
                      0, 0,
-                     (255, 60, 60),
+                     text_type = text_type,
                      target = "enemy"
                 )
 
         if current_time - self.last_monster_attack >= self.monster_attack_delay:
             if self.player.is_alive() and self.current_monster.is_alive():
-                dmg = self.current_monster.attack(self.player)
-                self.combat_log.append(f"{self.current_monster.name} hits {self.player.name} for {dmg} damage!")
+                dmg, is_crit = self.current_monster.attack(self.player)
+                if is_crit:
+                    self.combat_log.append(f"{self.current_monster.name} crits {self.player.name} for {dmg} damage!")
+                    text_type = "crit"
+                else:
+                    self.combat_log.append(f"{self.current_monster.name} hits {self.player.name} for {dmg} damage!")
+                    text_type = "damage"
                 self.last_monster_attack = current_time
                 something_happened = True
 
                 self.add_floating_text(
                      str(dmg),
                      0, 0,
-                     (255, 255, 100),
+                     text_type = text_type,
                      target = "player"
                 )
 
@@ -148,24 +159,130 @@ class CombatManager:
             self.combat_active = False
             something_happened = True
 
+        now = pygame.time.get_ticks()
+        if not hasattr(self, "_last_tick"):
+            self._last_tick = now
+        dt = now - self._last_tick
+        self.last_tick = now
+        #self.update_floating_text(dt)
+
         return something_happened
     
-    def add_floating_text(self, text, x, y, color, target = "enemy"):
+    def add_floating_text(self, text, x, y, color = None, target = "enemy", text_type = "damage"):
+        presets = {
+             "damage": {"color": (255, 220, 50), "outline": (0, 0, 0), "font_size": 50},
+             "crit": {"color": (255, 80, 80), "outline": (255, 255, 100), "font_size": 60},
+             "heal": {"color": (120, 255, 120), "outline": (0, 100, 0), "font_size": 36},
+             "mana": {"color": (100, 150, 255), "outline": (0, 0, 80), "font_size": 26},
+        }
+        style = presets.get(text_type, presets["damage"])
+        if color:
+             style["color"] = color
+
+        if x == 0 and y == 0:
+            surf = pygame.display.get_surface()
+            sw = surf.get_width() if surf else 800
+            sh = surf.get_height() if surf else 700
+
+            if target == "player":
+                base_x, base_y = 180, sh - 340
+                if text_type == "heal":
+                    x = base_x - 80
+                else:
+                    x = base_x + 80
+                
+                y = base_y
+            
+            elif target == "enemy":
+                base_x = sw - 200 
+                base_y = sh - 360
+                if text_type == "heal":
+                    x + base_x + 80
+                else:
+                    x = base_x - 80
+                
+                y = base_y
+        
+        
+
         entry = {
             "text": text,
-            "x": x,
+            "x": x + random.randint(-6, 6),
             "y": y,
-            "color": color,
+            "base_y": y,
             "alpha": 255,
+            "scale": 1.0,
             "float_speed": 0.4,
-            "offset_x": random.randint(-10, 10),
-            "offset_y": 0
+            "time": 0,
+            "outline": style["outline"],
+            "color": style["color"],
+            "font_size": style["font_size"],
+            "target": target,
+            "type": text_type,
         }
 
         if target == "enemy":
             self.floating_text_enemy.append(entry)
         else:
             self.floating_text_player.append(entry)
+
+    def update_floating_text(self, dt):
+        for group in [self.floating_text_enemy, self.floating_text_player]:
+            for entry in group[:]:
+                if "time" not in entry:
+                    entry["time"] = 0
+                    entry["vy"] = -0.02
+                    entry["base_y"] = entry.get("y", 0)
+                    entry["alpha"] = 255
+                if "vy" not in entry:
+                    entry["vy"] = -0.02
+                
+                entry["time"] += dt
+
+                entry["y"] += entry["vy"] * dt
+
+                
+
+                lifetime = 3000
+                fade_start = 1500
+                
+                if entry["time"] > fade_start:
+                    fade_progress = (entry["time"] - fade_start) / (lifetime - fade_start)
+                    entry["alpha"] = int(255 * max(0, 1 - fade_progress))
+                else:
+                    entry["alpha"] = 255
+
+                if entry["time"] >= lifetime or entry["alpha"] <= 0:
+                    group.remove(entry)
+
+    def draw_floating_text(self, surface):
+        for group in [self.floating_text_enemy, self.floating_text_player]:
+            for entry in group:
+                #fallback defaults
+                font_size = entry.get("font_size", 28)
+                color = entry.get("color", (255, 255, 255))
+                outline = entry.get("outline", (0, 0, 0))
+                alpha = entry.get("alpha", 255)
+                scale = entry.get("scale", 1.0)
+                x = entry.get("x", 0)
+                y = entry.get("y", 0)
+                text = entry.get("text", "")
+                
+                
+                font = pygame.font.Font(None, font_size)
+                text_surf = font.render(text, True, color)
+                text_surf.set_alpha(alpha)
+
+                scaled = pygame.transform.rotozoom(text_surf, 0, scale)
+                rect = scaled.get_rect(center = (x, y))
+
+                for ox, oy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    outline_surf = font.render(text, True, outline)
+                    outline_surf.set_alpha(alpha)
+                    outline_scaled = pygame.transform.rotozoom(outline_surf, 0, scale)
+                    surface.blit(outline_scaled, (rect.x + ox, rect.y + oy))
+
+                surface.blit(scaled, rect)
 
     def spawn_heal_particles(self, x, y):
          for _ in range(16):

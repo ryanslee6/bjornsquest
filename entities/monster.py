@@ -48,8 +48,10 @@ class Monster:
     def attack(self, target):
         import random
         base_damage = self.stats.strength
-        if random.random() < self.stats.crit_chance:
+        
+        is_crit = random.random() < self.stats.crit_chance
+        if is_crit:    
             base_damage *= 2
         damage = max(0, base_damage - target.stats.armor)
-        target.stats.hp -= damage
-        return damage
+        target.stats.hp = max(0, target.stats.hp - damage)
+        return damage, is_crit

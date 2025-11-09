@@ -37,5 +37,6 @@
         "rarity": "epic",
         "description": "Unlocks automatic combat mode.",
         "stackable": false
-}
+    }
+
 }
