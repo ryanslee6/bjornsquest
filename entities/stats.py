@@ -1,6 +1,6 @@
 
 class Stats:
-    def __init__(self, hp = 400, mp = 50, strength = 10, dexterity = 5, constitution = 10, intelligence = 5, is_player = False):
+    def __init__(self, hp = 400, mp = 500, strength = 10, dexterity = 5, constitution = 10, intelligence = 5, is_player = False):
         #self.hp = hp
         #self.max_hp = hp
         #self.mp = mp
@@ -13,7 +13,7 @@ class Stats:
 
         if is_player:
             self.base_hp = 400
-            self.base_mp = 50
+            self.base_mp = 500
         else:
             self.base_hp = hp
             self.base_mp = mp
@@ -24,14 +24,14 @@ class Stats:
         self.hp_regen_per_con = 0.01
         self._hp_regen_buffer = 0.0
 
-        self.base_mp = 50
+        self.base_mp = 500
         self.mp_per_int = 5
         self.base_mp_regen = 0.05
         self.mp_regen_per_int = 0.01
 
         self.recalc_stats()
 
-        self.crit_chance = 0.55
+        self.crit_chance = 0.05
         self.dodge_chance = 0.05
         self.attack_speed = 1.0
         self.armor = 0

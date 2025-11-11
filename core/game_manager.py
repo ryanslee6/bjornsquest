@@ -185,7 +185,8 @@ class GameManager:
                                 
                                 return
                             elif label == "Cast Spell":
-                                pass
+                                print("🪄 Casting Fireball...")
+                                self.combat.cast_spell("Fireball")
                             elif label == "Use Item":
                                 pass
                             elif label == "Inventory":
@@ -254,6 +255,9 @@ class GameManager:
 
         if hasattr(self, "combat"):
             self.combat.update_floating_text(dt)
+
+        self.combat.update_projectiles(dt)
+        self.combat.update_burns(dt)
 
     def draw(self):
         if self.state == "title":
@@ -375,6 +379,12 @@ class GameManager:
         bar_width = 160
         bar_height = 15
 
+        #spell projectiles
+        for p in self.combat.projectiles:
+            image = p["image"]
+            rect = image.get_rect(center = (int(p["x"]), int(p["y"])))
+            self.screen.blit(image, rect)
+
         #semi-transparent background for unit frame
         frame_width = bar_width + 45
         frame_height = 90
@@ -435,9 +445,34 @@ class GameManager:
             sprite = self.player.sprite
             sprite_x = player_sprite_rect.x + (player_sprite_rect.width - sprite.get_width()) // 2
             sprite_y = player_sprite_rect.y + (player_sprite_rect.height - sprite.get_height()) // 2
-            self.screen.blit(sprite, (sprite_x, sprite_y))
+            
 
-            self.player_draw_x = sprite_x
+            
+
+            offset_x = 0
+            now = pygame.time.get_ticks()
+            if self.combat.player_attack_anim:
+                elapsed = now - self.combat.player_attack_anim_start
+                total = self.combat.player_attack_anim_duration
+
+                if elapsed < total:
+                    phase = elapsed / total
+                    #first 30% = wind up (move left)
+                    #next 40% = swing forward (move right)
+                    #last 30% = recoil to center
+                    if phase < 0.3:
+                        offset_x = -20 * (phase / 0.3)  #wind up left
+                    elif phase < 0.7:
+                        offset_x = -20 + 60 * ((phase - 0.3) / 0.4)  #swing forward right
+                    else:
+                        offset_x = 40 - 40 * ((phase - 0.7) / 0.3)  #recoil to center
+                else:
+                    #animation finished
+                    self.combat.player_attack_anim = None
+
+            self.screen.blit(sprite, (sprite_x + offset_x, sprite_y))
+
+            self.player_draw_x = sprite_x + offset_x
             self.player_draw_y = sprite_y
 
         else:
@@ -470,7 +505,7 @@ class GameManager:
         pygame.draw.rect(self.screen, CYAN, (enemy_x, enemy_y + 50, int(bar_width * monster_mp_ratio), bar_height))
 
         enemy_sprite_rect = pygame.Rect(enemy_x - 85, 305, 200, 180)
-
+        self.enemy_sprite_rect = enemy_sprite_rect
         if self.current_monster.sprite:
             sprite = self.current_monster.sprite
             
@@ -480,6 +515,20 @@ class GameManager:
             sprite_y = enemy_sprite_rect.y + (enemy_sprite_rect.height - scaled_sprite.get_height()) // 2
             
             self.screen.blit(scaled_sprite, (sprite_x, sprite_y))
+
+            #flash effect on hit
+            now = pygame.time.get_ticks()
+            flashing = False
+            if (self.combat.enemy_hit_flash_timer > 0 and now - self.combat.enemy_hit_flash_timer < self.combat.enemy_hit_flash_duration):
+                #flash every  50 ms
+                if ((now - self.combat.enemy_hit_flash_timer) // 50) % 2 == 0:               
+                    flash_surf = scaled_sprite.copy()
+                    flash_surf.fill((255, 255, 255), special_flags = pygame.BLEND_RGB_ADD)
+                    self.screen.blit(flash_surf, (sprite_x, sprite_y))
+            else:
+                    self.combat.enemy_hit_flash_timer = 0    
+                    
+
         else:
             pygame.draw.rect(self.screen, (30, 30, 30), enemy_sprite_rect, border_radius = 8)
             pygame.draw.rect(self.screen, (80, 80, 80), enemy_sprite_rect, width = 2, border_radius = 8)
