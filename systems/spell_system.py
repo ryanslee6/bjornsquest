@@ -24,6 +24,15 @@ class Spell:
         #override in subclasses
         raise NotImplementedError
     
+    def get_cooldown_remaining(self):
+        elapsed = time.time() - self.last_cast_time
+        remaining = max(0, self.cooldown - elapsed)
+        #print(f"[COOLDOWN DEBUG] {self.name}: cooldown={self.cooldown}, elapsed={elapsed}, remaining={remaining}")
+        return remaining
+    
+    def is_on_cooldown(self):
+        return self.get_cooldown_remaining() > 0
+
 
 class Fireball(Spell):
     def __init__(self):
@@ -102,6 +111,87 @@ class Fireball(Spell):
 
         return True
     
+    
+
+class Heal(Spell):
+    def __init__(self):
+        super().__init__(
+            name = "Heal",
+            mana_cost = 45,
+            cooldown = 5.0,
+            power = 25
+            #description = "Restores a small amount of health."
+        )
+
+    def cast(self, caster, target = None, combat = None):
+        if not self.can_cast(caster):
+            print(f"{caster.name} tried to cast {self.name}, but didn't have enough MP!")
+            return False
+
+        caster.stats.mp -= self.mana_cost
+        heal_amount = 10
+        caster.stats.hp = min(caster.stats.hp + heal_amount, caster.stats.max_hp)
+        
+        log_message = f"{caster.name} casts {self.name} and heals for {heal_amount} HP!"
+        print(log_message)
+        if hasattr(combat, "combat_log"):
+            combat.combat_log.append(log_message)
+        
+        combat.add_floating_text(
+            f"{heal_amount}",
+            0, 0,
+            text_type = "heal",
+            target = "player"
+        )
+        
+        self.last_cast_time = time.time()
+        return True
+
+class BattleCry(Spell):
+    def __init__(self):
+        super().__init__(
+            "Battle Cry",
+            mana_cost = 40,
+            power = 0,
+            element = "physical",
+            target = "self",
+            cooldown = 20.0
+        )
+
+        self.buff_duration = 10.0
+        self.str_buff = 5
+    def cast(self, caster, target, combat):
+        if not self.can_cast(caster):
+            print(f"{caster.name} tried to cast {self.name}, but didn't have enough MP!")
+            return False
+
+        caster.stats.mp -= self.mana_cost
+
+        caster.stats.strength = int(caster.stats.strength + self.str_buff)
+        if not hasattr(caster, "active_buffs"):
+            caster.active_buffs = []
+        caster.active_buffs.append({
+            "name": self.name,
+            "expires": time.time() + self.buff_duration,
+            "revert": lambda c: setattr(c.stats, "strength", int(c.stats.strength - self.str_buff))
+        })
+
+        log_message = f"{caster.name} uses {self.name}! Strength increased by {self.str_buff} for {int(self.buff_duration)}s."
+        print(log_message)
+        if hasattr(combat, "combat_log"):
+            combat.combat_log.append(log_message)
+
+        combat.add_floating_text(
+            "Battle Cry!",
+            0, 0,
+            text_type = "damage",
+            target = "player"
+        )
+
+        self.last_cast_time = time.time()
+        return True
+
+
 
 def get_default_spellbook():
-    return [Fireball()]
+    return [Fireball(), Heal(), BattleCry()]

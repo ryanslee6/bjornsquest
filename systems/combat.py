@@ -320,14 +320,15 @@ class CombatManager:
             print("⚔️ Combat initiated by spell cast!")
 
 
-        for spell in self.spellbook:
+        for spell in self.player.game.spell_slots.values():
             if spell.name.lower() == spell_name.lower():
+                print(f"[CAST DEBUG] Found {spell.name} id={id(spell)} in slots")
                 if not spell.can_cast(self.player):
                     return False
                 success = spell.cast(self.player, self.current_monster, self)
                 if success:
                     now = time.time()
-                    self.laster_player_attack = now
+                    self.last_player_attack = now
                 return success
         print(f"[ERROR] Spell '{spell_name}' not found in spellbook!")
         return False

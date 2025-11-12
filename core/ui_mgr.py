@@ -1,6 +1,8 @@
 import pygame
 from settings import *
 
+spell_slots = {}
+
 class InventoryWindow:
     def __init__(self, game):
         self.game = game
@@ -244,3 +246,123 @@ class VendorWindow:
         y = SCREEN_HEIGHT // 2 - self.height // 2
         rect = pygame.Rect(x, y, self.width, self.height)
         return not rect.collidepoint(pos)
+    
+class SpellbookWindow:
+    def __init__(self, player, spellbook, on_assign_callback):
+        self.player = player
+        self.spellbook = spellbook
+        self.on_assign_callback = on_assign_callback
+        self.visible = False
+
+        self.width = 360
+        self.height = 300
+        self.x = 220
+        self.y = 150
+        self.bg_color = (20, 20, 20)
+        self.border_color = (100, 100, 100)
+
+        self.font = pygame.font.Font(None, 24)
+        self.title_font = pygame.font.Font(None, 30)
+
+        self.selected_slot = None
+    
+
+    def toggle(self, slot_index = None):
+        was_visible = self.visible
+        self.visible = not self.visible
+        #self.selected_slot = slot_index if self.visible else None
+        
+        if self.visible and slot_index is not None:
+            self.selected_slot = slot_index
+        else:
+            self.selected_slot = None
+        
+        print(f"📖 Spellbook {'opened' if self.visible else 'closed'} (slot={slot_index})")
+        
+        if not self.visible and hasattr(self.player.game, "selected_spell_slot"):
+            self.player.game.selected_spell_slot = None
+
+    def draw(self, surface):
+        if not self.visible:
+            return
+        
+        panel = pygame.Rect(self.x, self.y, self.width, self.height)
+        pygame.draw.rect(surface, self.bg_color, panel)
+        pygame.draw.rect(surface, self.border_color, panel, 2)
+
+        title = self.title_font.render("Spellbook", True, (255, 255, 255))
+        surface.blit(title, (self.x + 10, self.y + 10))
+
+        start_y = self.y + 50
+
+        for i, spell in enumerate(self.spellbook):
+            text = f"{spell.name}"
+            color = (200, 200, 255)
+            surf = self.font.render(text, True, color)
+            rect = surf.get_rect(topleft = (self.x + 20, start_y + i * 32))
+            surface.blit(surf, rect)
+
+            pygame.draw.rect(surface, (60, 60, 60), rect.inflate(8, 4), 1)
+            spell.click_rect = rect.inflate(8, 4)
+
+        mouse_pos = pygame.mouse.get_pos()
+        for spell in self.spellbook:
+            if hasattr(spell, "click_rect") and spell.click_rect.collidepoint(mouse_pos):
+                self.draw_spell_tooltip(surface, spell, mouse_pos)
+                break
+
+    def handle_click(self, pos):
+        if not self.visible:
+            return False
+        
+        for i, spell in enumerate(self.spellbook):
+            if hasattr(spell, "click_rect") and spell.click_rect.collidepoint(pos):
+                if self.selected_slot is None:
+                    print(f"[INFO] Clicked {spell.name}, but no slot is selected.")
+                    return True   
+                
+                print(f"🪄 Selected {spell.name} for Slot {self.selected_slot}")
+                if self.on_assign_callback:
+                    self.on_assign_callback(self.selected_slot, spell)
+                             
+                self.toggle(None)
+                return True
+        return False
+    
+    def draw_spell_tooltip(self, surface, spell, mouse_pos):
+        #print(f"[UI DEBUG] Tooltip surface id={id(surface)}")
+        equipped_slot = None
+        #find which slot spell is assigned to (if any)
+        if hasattr(self.player.game, "spell_slots"):
+            for slot, s in self.player.game.spell_slots.items():
+                if s.name == spell.name:
+                    equipped_slot = slot
+                    break
+        lines = [
+            f"{spell.name}",
+            f"MP Cost: {spell.mana_cost}",
+            f"Cooldown: {spell.cooldown // 1000}s",
+            f"Damage: {getattr(spell, 'power', '?')}",
+        ]
+        if equipped_slot:
+            lines.append(f"Equipped to Slot {equipped_slot}")
+        else:
+            lines.append("Not equipped")
+
+        font = pygame.font.Font(None, 22)
+        padding = 8
+        width = max(font.size(line)[0] for line in lines) + padding * 2
+        height = len(lines) * 22 + padding * 2
+        x, y = mouse_pos
+        
+        screen_w, screen_h = surface.get_size()
+        x = min(x, screen_w - width - 15)
+        y = min(y, screen_h - height - 15)
+        rect = pygame.Rect(x + 15, y+ 15, width, height)
+
+        pygame.draw.rect(surface, (30, 30, 30), rect)
+        pygame.draw.rect(surface, (150, 150, 150), rect, 2)
+
+        for i, line in enumerate(lines):
+            surf = font.render(line, True, (255, 255, 255))
+            surface.blit(surf, (rect.x + padding, rect.y + padding + i * 22))

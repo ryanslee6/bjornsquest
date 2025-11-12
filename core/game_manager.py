@@ -7,6 +7,7 @@ from systems.combat import CombatManager
 from systems.loot_system import LootSystem
 from core.ui_mgr import *
 from core.item_mgr import ItemManager
+from core.ui_mgr import SpellbookWindow
 
 
 class GameManager:
@@ -14,6 +15,7 @@ class GameManager:
         self.screen = screen
         self.font = pygame.font.SysFont(None, 36)
         self.float_font = pygame.font.Font(None, 42)
+        self.font_small = pygame.font.Font(None, 24)
         self.state = "title"
         self.title_image = self.load_image("bq_titlescreen.png")
         self.home_image = self.load_image("bq_campsite.png")
@@ -21,7 +23,11 @@ class GameManager:
         self.items = ItemManager()
         self.inventory_window = InventoryWindow(self)
         self.show_inventory = False
+        self.show_spell_bar = False
+        self.spell_buttons = {}
         self.vendor_window = VendorWindow(self)
+        
+        
         
 
         self.combat_bg = pygame.image.load("assets/images/combat_bg1.png").convert_alpha()
@@ -46,7 +52,15 @@ class GameManager:
         self.combat = CombatManager(self.player, self.current_monster, self.loot_system)
         self.combat.auto_callback = lambda: self.auto_combat_enabled
 
+        self.spellbook_window = SpellbookWindow(
+            self.player,
+            self.combat.spellbook,
+            self.assign_spell_to_slot
+        )
+        self.spell_slots = {}
         
+        
+
         self.auto_combat_enabled = False
 
         if self.combat:
@@ -184,9 +198,9 @@ class GameManager:
                                     self.combat.player_initiated = True
                                 
                                 return
-                            elif label == "Cast Spell":
-                                print("🪄 Casting Fireball...")
-                                self.combat.cast_spell("Fireball")
+                            elif label == "Spells":
+                                print("🪄 Opening/Closing spell menu...")
+                                self.show_spell_bar = not self.show_spell_bar
                             elif label == "Use Item":
                                 pass
                             elif label == "Inventory":
@@ -195,6 +209,32 @@ class GameManager:
                             elif label == "Home":
                                 self.state = "home"
                                 print("[UI] Returning to home screen")
+
+
+                    if getattr(self, "show_spell_bar", False):
+                        for label, rect in self.spell_buttons.items():
+                            if rect.collidepoint(event.pos):
+                                print(f"Clicked {label}")
+                                
+                                if label == "Spellbook":
+                                    self.spellbook_window.toggle()
+                                    return
+                                
+                                if label.startswith("Slot"):
+                                    slot_index = int(label.split(" ")[1])
+                                    self.selected_spell_slot = slot_index
+                                                                                                   
+                                    if self.spellbook_window.visible:
+                                        self.spellbook_window.selected_slot = slot_index
+                                        print(f"[UI] Selected slot {slot_index} for assignment")
+                                    else:
+                                        spell = self.spell_slots.get(slot_index)
+                                        if spell:
+                                            print(f"[CAST DEBUG] Casting {spell.name} id={id(spell)} from slot {slot_index}")
+                                            self.combat.cast_spell(spell.name)
+
+                                return
+
 
             elif self.state == "vendor":
                 #implement vendor screen clicks
@@ -207,6 +247,10 @@ class GameManager:
                         self.state = "home"
                         return
 
+
+            if self.spellbook_window.visible:
+                if self.spellbook_window.handle_click(event.pos):
+                    return
 
     def update(self, dt):
         #hp regen buffer system
@@ -617,7 +661,7 @@ class GameManager:
         self.screen.blit(self.ui_border, (0, border_y))
 
 
-        button_labels = ["Attack", "Auto", "Cast Spell", "Use Item", "Inventory", "Home"]
+        button_labels = ["Attack", "Auto", "Spells", "Use Item", "Inventory", "Home"]
         self.combat_buttons = {}
         button_width, button_height = 130, 40
         spacing = 8
@@ -643,6 +687,133 @@ class GameManager:
         #inventory
         if self.show_inventory:
             self.inventory_window.draw(self.screen)
+
+        hovered_spell = None
+        hover_mouse_pos = None
+
+        #spell bar
+        if self.show_spell_bar:
+            spell_button_labels = ["Spellbook", "Slot 1", "Slot 2", "Slot 3"]
+            spell_buttons = {}
+            spell_button_width = 110
+            spell_button_height = 36
+            spell_spacing = 4
+            
+            spells_rect = self.combat_buttons.get("Spells")
+            if spells_rect:
+                spell_x = spells_rect.x - 100
+                spell_y = spells_rect.y - (spell_button_height + 6)
+            else:
+                spell_x = SCREEN_WIDTH // 2 - ((len(spell_button_labels) * (spell_button_width + spell_spacing)) // 2)
+                spell_y = SCREEN_HEIGHT - 90
+
+            mouse_pos = pygame.mouse.get_pos()
+            #hovered_spell = None
+            #hover_mouse_pos = None
+
+            #slot_index = None
+            #is_selected = False
+
+            for i, label in enumerate(spell_button_labels):
+                rect = pygame.Rect(spell_x + i * (spell_button_width + spell_spacing), spell_y, spell_button_width, spell_button_height)
+                spell_buttons[label] = rect
+
+                spellbook_open = False
+                if hasattr(self, "ui_mgr") and hasattr(self.ui_mgr, "spellbook_window"):
+                    spellbook_open = self.ui_mgr.spellbook_window.visible
+                elif hasattr(self, "spellbook_window"):
+                    spellbook_open = self.spellbook_window.visible
+
+                slot_index = None
+                if label.startswith("Slot"):
+                    slot_index = int(label.split(" ")[1])
+
+                is_selected = (
+                    spellbook_open
+                    #and not getattr(self, "in_combat", False)
+                    and hasattr(self, "selected_spell_slot")
+                    and slot_index is not None
+                    and self.selected_spell_slot == slot_index
+                )
+
+                base_color = (60, 60, 60)
+                highlight_color = (120, 120, 120) if is_selected else base_color
+
+                pygame.draw.rect(self.screen, highlight_color, rect, border_radius = 6)
+                pygame.draw.rect(self.screen, (180, 180, 180), rect, 2, border_radius = 6)              
+
+                if slot_index is not None:
+                    
+                    
+                    spell = self.spell_slots.get(slot_index)
+                    #print(f"[DEBUG] Got spell for slot {slot_index}: {spell}")
+                    
+                    if spell:
+                        #print(f"[INSTANCE CHECK] {spell.name} id={id(spell)} cooldown_remaining={spell.get_cooldown_remaining()}")
+                        remaining = spell.get_cooldown_remaining()
+                        if remaining > 0:
+                            
+                            pct = remaining / spell.cooldown
+                            overlay_height = int(rect.height * pct)
+                            #print(f"[DRAW] Overlay for {spell.name} — {remaining:.2f}s left, pct={pct:.2f}")
+
+                            overlay_surface = pygame.Surface((rect.width, overlay_height), pygame.SRCALPHA)
+                            overlay_surface.fill((0, 0, 0, 140))
+                            self.screen.blit(overlay_surface, (rect.x, rect.y + (rect.height - overlay_height)))
+
+                            #cd_text = self.font_small.render(f"{remaining:.1f}", True, (255, 255, 255))
+                            #cd_rect = cd_text.get_rect(center = rect.center)
+                            #self.screen.blit(cd_text, cd_rect)
+
+                if slot_index is not None:
+                    assigned_spell = self.spell_slots.get(slot_index)
+                    display_text = assigned_spell.name if assigned_spell else label
+                else:
+                    display_text = label
+
+                spell_text = self.font_small.render(display_text, True, (255, 255, 255))
+                self.screen.blit(spell_text, spell_text.get_rect(center = rect.center))
+
+
+                if rect.collidepoint(mouse_pos) and slot_index is not None:
+                    #slot_index = int(label.split(" ")[1])
+                    spell = self.spell_slots.get(slot_index)
+                    if spell:
+                        hovered_spell = spell
+                        hover_mouse_pos = mouse_pos 
+                   
+                
+            self.spell_buttons = spell_buttons
+
+            #if hovered_spell:
+            #    print(f"[DEBUG] Hovering over {hovered_spell.name}")
+            #    self.ui_mgr.draw_spell_tooltip(self.screen, hovered_spell, hover_mouse_pos)
+
+        if self.spellbook_window.visible:
+            self.spellbook_window.draw(self.screen)
+
+        if hovered_spell and hasattr(self, "ui_mgr"):
+            self.ui_mgr.draw_spell_tooltip(self.screen, hovered_spell, hover_mouse_pos)
+            pygame.display.flip()
+
+
+    def assign_spell_to_slot(self, slot_index, spell):
+        #prevent duplicates
+        for slot, assigned in self.spell_slots.items():
+            if assigned.name == spell.name:
+                print(f"[INFO] {spell.name} is already assigned to Slot {slot}.")
+                return  
+        
+        print(f"✅ Assigned {spell.name} to Slot {slot_index} (id={id(spell)})")    
+        self.spell_slots[slot_index] = spell
+        self.selected_spell_slot = None
+
+        if hasattr(self, "ui_mgr") and hasattr(self.ui_mgr, "spellbook_window"):
+            self.ui_mgr.spellbook_window.visible = False
+        elif hasattr(self, "spellbook_window"):
+            self.spellbook_window.visible = False
+      
+        
 
     def get_frame(self, sheet, frame_rect):
         frame = sheet.subsurface(frame_rect)
