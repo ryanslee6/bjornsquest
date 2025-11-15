@@ -8,6 +8,9 @@ from systems.loot_system import LootSystem
 from core.ui_mgr import *
 from core.item_mgr import ItemManager
 from core.ui_mgr import SpellbookWindow
+import time
+import math
+from pygame import gfxdraw
 
 
 class GameManager:
@@ -29,6 +32,8 @@ class GameManager:
         
         
         
+        
+        
 
         self.combat_bg = pygame.image.load("assets/images/combat_bg1.png").convert_alpha()
         self.combat_bg = pygame.transform.scale(self.combat_bg, (SCREEN_WIDTH, SCREEN_HEIGHT - 52))
@@ -46,11 +51,17 @@ class GameManager:
             self.player_sprite_sheet1 = pygame.Surface((64, 64))
             self.player_sprite_sheet1.fill((255, 0, 255))
 
+
+        self.current_monster = None
+        self.monster_defeated = False
+        self.respawn_time = 0
+
         self.player = Player(item_manager = self.items)
         self.player.game = self
-        self.current_monster = None
         self.combat = CombatManager(self.player, self.current_monster, self.loot_system)
         self.combat.auto_callback = lambda: self.auto_combat_enabled
+
+    
 
         self.spellbook_window = SpellbookWindow(
             self.player,
@@ -302,6 +313,74 @@ class GameManager:
 
         self.combat.update_projectiles(dt)
         self.combat.update_burns(dt)
+        self.combat.update_heal_spell_particles(dt)
+
+        self.player.remove_expired_effects()
+        if self.current_monster:
+            self.current_monster.remove_expired_effects()
+
+        
+        # ==========================================
+        # 1) Handle Monster Death
+        # ==========================================
+        if self.current_monster and not self.current_monster.is_alive() and not self.monster_defeated:
+            self.monster_defeated = True
+
+            self.combat.combat_log.append(f"{self.current_monster.name} was defeated!")
+
+            exp = self.current_monster.exp_reward
+            drops = self.loot_system.generate_loot(self.current_monster.name)
+            print("You found:", drops)
+
+            for drop in drops:
+                item_name = drop["item"]
+                qty = drop["quantity"]
+
+                if item_name.lower() == "gold coins":
+                    self.player.gold += qty
+                    self.loot_log.append(f"+{qty} Gold Coins")
+                else:
+                    self.player.add_item(item_name, qty)
+                    self.combat.loot_log.append(f"+{qty} {item_name}")
+
+            self.combat.loot_log = self.combat.loot_log[-5:]
+            self.player.gain_exp(exp)
+
+            # clear old debuffs
+            self.current_monster.active_effects = []
+
+            # clear lingering burn timers
+            self.combat.active_burns = [
+                b for b in self.combat.active_burns
+                if b["target"].is_alive()
+            ]
+
+            self.respawn_time = pygame.time.get_ticks() + 1000
+            return  # IMPORTANT
+
+
+        # ==========================================
+        # 2) Handle Monster Respawn
+        # ==========================================
+        #print("[RESPAWN CHECK] monster_defeated =", self.monster_defeated,
+        #    " now=", pygame.time.get_ticks(), 
+        #    " respawn_at=", self.respawn_time)
+        if self.monster_defeated and pygame.time.get_ticks() > self.respawn_time:
+            old_name = self.current_monster.name
+            new_monster = Monster(old_name)
+            new_monster.active_effects = []
+
+            self.current_monster = new_monster
+            self.combat.current_monster = new_monster
+
+            self.player_initiated = False
+            self.combat.player_initiated = False
+            self.combat_active = True
+            self.combat.combat_active = True
+            self.combat.last_player_attack = pygame.time.get_ticks()
+
+            self.monster_defeated = False
+
 
     def draw(self):
         if self.state == "title":
@@ -439,6 +518,10 @@ class GameManager:
         unit_frame_surf.fill((0, 0, 0, 160))
         self.screen.blit(unit_frame_surf, (frame_x, frame_y))
 
+        self.player_frame_x = frame_x
+        self.player_frame_y = frame_y
+        self.player_frame_height = frame_height
+
         #player name
         player_text = font.render(f"{self.player.name} (Lv {self.player.level})", True, WHITE)
         self.screen.blit(player_text, (player_x, player_y))
@@ -523,11 +606,28 @@ class GameManager:
             pygame.draw.rect(self.screen, (30, 30, 30), player_sprite_rect, border_radius = 8)
             pygame.draw.rect(self.screen, (80, 80, 80), player_sprite_rect, width = 2, border_radius = 8)
 
-        
+        enemy_bar_width = 200
+        enemy_bar_height = 20
+        enemy_x = SCREEN_WIDTH - enemy_bar_width
+        enemy_y = 17
+
+        frame_width = enemy_bar_width + 5
+        frame_height = 90
+        frame_x = enemy_x - 10
+        frame_y = enemy_y - 10
+
+        enemy_frame_surf = pygame.Surface((frame_width, frame_height), pygame.SRCALPHA)
+        enemy_frame_surf.fill((0, 0, 0, 160))
+        self.screen.blit(enemy_frame_surf, (frame_x, frame_y))     
+
+        self.enemy_frame_x = frame_x
+        self.enemy_frame_y = frame_y
+        self.enemy_frame_height = frame_height
+
         #monster hp/mp
 
-        enemy_x = SCREEN_WIDTH - 250
-        enemy_y = 40
+        enemy_x = SCREEN_WIDTH - 180
+        enemy_y = 20
         monster = self.combat.current_monster
 
         monster_text = font.render(f"{monster.name} (Lvl {monster.level})", True, WHITE)
@@ -547,6 +647,8 @@ class GameManager:
         monster_mp_ratio = self.current_monster.stats.mp / self.current_monster.stats.max_mp
         pygame.draw.rect(self.screen, BLUE, (enemy_x, enemy_y + 50, bar_width, bar_height))
         pygame.draw.rect(self.screen, CYAN, (enemy_x, enemy_y + 50, int(bar_width * monster_mp_ratio), bar_height))
+
+
 
         enemy_sprite_rect = pygame.Rect(enemy_x - 85, 305, 200, 180)
         self.enemy_sprite_rect = enemy_sprite_rect
@@ -577,6 +679,9 @@ class GameManager:
             pygame.draw.rect(self.screen, (30, 30, 30), enemy_sprite_rect, border_radius = 8)
             pygame.draw.rect(self.screen, (80, 80, 80), enemy_sprite_rect, width = 2, border_radius = 8)
 
+
+        self.draw_player_buffs()
+        self.draw_enemy_buffs()
 
         #combat/loot log settings
         log_width = (SCREEN_WIDTH - 100) // 2
@@ -640,22 +745,12 @@ class GameManager:
             self.screen.blit(s, (p["x"], p["y"]))
 
         self.combat.draw_floating_text(self.screen)
+        self.combat.draw_heal_spell_particles(self.screen)
 
-        #for t in self.combat.floating_text_enemy:
-        #    text_str = t.get("text", "")
-        #    color = t.get("color", (255, 255, 255))
-        #    alpha = t.get("alpha", 255)
-
-        #    text_surface = self.float_font.render(text_str, True, color)
-        #    text_surface.set_alpha(max(0, alpha))
-
-        #    enemy_center_x = SCREEN_WIDTH - 250 + 100
-        #    enemy_center_y = 240
-
-        #    draw_x = enemy_center_x + t.get("offset_x", 0)
-        #    draw_y = enemy_center_y - 40 + t.get("offset_y", 0)
-
-        #    self.screen.blit(text_surface, (draw_x, draw_y))
+        #for p in self.combat.heal_spell_particles:
+        #    s = pygame.Surface((p["size"]), pygame.SRCALPHA)
+        #    s.fill((*p["color"], max(0, p["alpha"])))
+        #    self.screen.blit(s, (p["x"], p["y"]))
 
         border_y = SCREEN_HEIGHT - 70
         self.screen.blit(self.ui_border, (0, border_y))
@@ -796,6 +891,24 @@ class GameManager:
             self.ui_mgr.draw_spell_tooltip(self.screen, hovered_spell, hover_mouse_pos)
             pygame.display.flip()
 
+    def draw_effects(self, effects, start_x, start_y):
+        box_size = 26
+        padding = 4
+
+        for i, effect in enumerate(effects):
+            x = start_x + i * (box_size + padding)
+            rect = pygame.Rect(x, start_y, box_size, box_size)
+
+            #placeholder box
+            pygame.draw.rect(self.screen, effect["color"], rect)
+            pygame.draw.rect(self.screen, (255, 255, 255), rect, 2)
+
+            #optional text (first letter of buff for now)    
+            letter = effect["name"][0]
+            text = self.font_small.render(letter, True, (0, 0, 0))
+            self.screen.blit(text, text.get_rect(center = rect.center))
+
+            self.draw_radial_cooldown(self.screen, rect, effect)
 
     def assign_spell_to_slot(self, slot_index, spell):
         #prevent duplicates
@@ -813,7 +926,68 @@ class GameManager:
         elif hasattr(self, "spellbook_window"):
             self.spellbook_window.visible = False
       
-        
+
+    def draw_player_buffs(self):
+            effects = getattr(self.player, "active_effects", [])
+            if not effects:
+                return
+            
+            frame_x = self.player_frame_x
+            frame_y = self.player_frame_y
+            frame_height = self.player_frame_height
+
+            start_x = frame_x + 10
+            start_y = frame_y + frame_height + 8
+
+            self.draw_effects(effects, start_x, start_y)
+
+    def draw_enemy_buffs(self):
+            effects = getattr(self.current_monster, "active_effects", [])
+            #print("[ENEMY BUFF DEBUG] effects =", effects)
+            if not self.current_monster:
+                return
+
+            effects = getattr(self.current_monster, "active_effects", [])
+            if not effects:
+                return
+
+            frame_x = self.enemy_frame_x
+            frame_y = self.enemy_frame_y
+            frame_height = self.enemy_frame_height
+
+            start_x = frame_x + 10
+            start_y = frame_y + frame_height + 8
+
+            self.draw_effects(effects, start_x, start_y)  
+
+    def draw_radial_cooldown(self, surface, rect, effect):
+        now = time.time()
+        remaining = effect["expires"] - now
+        duration = effect["duration"]
+
+        if remaining <= 0:
+            return
+
+        pct = remaining / duration
+        angle = pct * 360  # degrees
+
+        # Create a transparent overlay surface for the cooldown mask
+        overlay = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+
+        cx = rect.width // 2
+        cy = rect.height // 2
+        r = rect.width // 2
+
+        # Draw a filled radial "pie" mask
+        steps = 90  # more steps = smoother circle
+        for i in range(int(angle)):
+            rad = math.radians(i)
+            x = cx + r * math.cos(rad)
+            y = cy - r * math.sin(rad)
+            pygame.draw.line(overlay, (0, 0, 0, 150), (cx, cy), (x, y))
+
+        surface.blit(overlay, rect.topleft)
+
 
     def get_frame(self, sheet, frame_rect):
         frame = sheet.subsurface(frame_rect)

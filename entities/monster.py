@@ -1,5 +1,6 @@
 from entities.stats import Stats
 import pygame, json, os
+import time
 
 class Monster:
     
@@ -30,6 +31,8 @@ class Monster:
         
         self.alive = True
 
+        self.active_effects = []
+
         
         
         #try:
@@ -48,6 +51,10 @@ class Monster:
     def attack(self, target):
         import random
         base_damage = self.stats.strength
+
+        if getattr(self, "is_stunned", False):
+            return 0, False
+
         
         is_crit = random.random() < self.stats.crit_chance
         if is_crit:    
@@ -55,3 +62,28 @@ class Monster:
         damage = max(0, base_damage - target.stats.armor)
         target.stats.hp = max(0, target.stats.hp - damage)
         return damage, is_crit
+    
+    def add_status_effect(self, name, duration, icon = None, color = (200, 200, 200)):
+        if not hasattr(self, "active_effects"):
+            self.active_effects = []
+
+        self.active_effects.append({
+            "name": name,
+            "expires": time.time() + duration,
+            "icon": icon,
+            "color": color
+        })
+
+    def remove_expired_effects(self):
+        now = time.time()
+        new_list = []
+
+        for effect in self.active_effects:
+            if now < effect["expires"]:
+                new_list.append(effect)
+            else:
+                if "revert" in effect:
+                    effect["revert"](self)
+
+        self.active_effects = new_list
+        

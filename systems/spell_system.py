@@ -144,6 +144,14 @@ class Heal(Spell):
             target = "player"
         )
         
+        #if hasattr(combat, "spawn_heal_spell_particles"):
+        #    combat.spawn_heal_spell_particles(
+        #        caster.game.player_draw_x + 40,
+        #        caster.game.player_draw_y - 20
+        #    )
+
+        combat.spawn_heal_effect("player", heal_amount)
+
         self.last_cast_time = time.time()
         return True
 
@@ -169,9 +177,12 @@ class BattleCry(Spell):
 
         caster.stats.strength = int(caster.stats.strength + self.str_buff)
         if not hasattr(caster, "active_buffs"):
-            caster.active_buffs = []
-        caster.active_buffs.append({
+            caster.active_effects = []
+        caster.active_effects.append({
             "name": self.name,
+            "color": (100, 150, 255),
+            "duration": self.buff_duration,
+            "start": time.time(),
             "expires": time.time() + self.buff_duration,
             "revert": lambda c: setattr(c.stats, "strength", int(c.stats.strength - self.str_buff))
         })
@@ -191,7 +202,63 @@ class BattleCry(Spell):
         self.last_cast_time = time.time()
         return True
 
+class LightningBolt(Spell):
+    def __init__(self):
+        super().__init__(
+            name = "Lightning Bolt",
+            mana_cost = 50,
+            power = 30,
+            element = "earth",
+            target = "enemy",
+            cooldown = 8.0
+        )
 
+        self.stun_duration = 3.0
+
+    def cast(self, caster, target, combat):
+        if not self.can_cast(caster):
+            print(f"{caster.name} tried to cast {self.name}, but didn't have enough MP!")
+            return False
+        
+        caster.stats.mp -= self.mana_cost
+
+        dmg = int(self.power + caster.stats.intelligence)
+        dmg = max(1, dmg - target.stats.armor)
+        target.stats.hp = max(0, target.stats.hp - dmg)
+
+        log_message = f"{caster.name} casts {self.name} for {dmg} damage and stuns the enemy!"
+        print(log_message)
+        if hasattr(combat, "combat_log"):
+            combat.combat_log.append(log_message)
+
+        combat.add_floating_text(
+            f"{dmg}",
+            0, 0,
+            text_type = "spell",
+            target = "enemy"
+        )
+
+        if not hasattr(target, "active_effects"):
+            target.active_effects = []
+
+        target.active_effects.append({
+            "name": "Stun",
+            "color": (200, 200, 50),
+            "start": time.time(),
+            "duration": self.stun_duration,
+            "expires": time.time() + self.stun_duration,
+            "type": "stun"
+        })
+
+        if not hasattr(target, "is_stunned"):
+            target.is_stunned = False
+
+        target.is_stunned = True
+        target.stun_expires_at = time.time() + self.stun_duration
+
+        self.last_cast_time = time.time()
+
+        return True
 
 def get_default_spellbook():
-    return [Fireball(), Heal(), BattleCry()]
+    return [Fireball(), Heal(), BattleCry(), LightningBolt()]

@@ -1,6 +1,7 @@
 from entities.stats import Stats
 from data.exp_table import exp_table
 import pygame
+import time
 
 class Player:
     def __init__(self, name = "Bjorn", item_manager = None, is_player = True):
@@ -10,6 +11,7 @@ class Player:
         self.exp = 0
         #self.exp_to_level = 15
         self.inventory = []
+        self.active_effects = []
         self.regen_timer = 0
         self.gold = 0
         self.auto_combat_unlocked = False
@@ -167,3 +169,27 @@ class Player:
         
         if remaining > 0:
             self.gold = max(0, self.gold - remaining)
+
+    def add_status_effect(self, name, duration, icon = None, color = (200, 200, 200)):
+        if not hasattr(self, "active_effects"):
+            self.active_effects = []
+
+        self.active_effects.append({
+            "name": name,
+            "expires": time.time() + duration,
+            "icon": icon,
+            "color": color
+        })
+
+    def remove_expired_effects(self):
+        now = time.time()
+        new_list = []
+
+        for effect in self.active_effects:
+            if now < effect["expires"]:
+                new_list.append(effect)
+            else:
+                if "revert" in effect:
+                    effect["revert"](self)
+
+        self.active_effects = new_list

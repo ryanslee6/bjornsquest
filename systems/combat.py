@@ -35,6 +35,7 @@ class CombatManager:
         self.ready_time = None
 
         self.heal_particles = []
+        self.heal_spell_particles = []
 
         self.player_attack_anim = None
         self.player_attack_anim_start = 0
@@ -59,27 +60,34 @@ class CombatManager:
                         return
                     self.ready_time = None
 
-        if self.monster_defeated:
-            if pygame.time.get_ticks() >= self.respawn_time:
-                self.current_monster = Monster(self.current_monster.name)
-                self.current_monster.stats.hp = self.current_monster.stats.max_hp
-                self.current_monster.stats.mp = self.current_monster.stats.max_mp
+        #if self.monster_defeated:
+        #    if pygame.time.get_ticks() >= self.respawn_time:
+        #        self.current_monster = Monster(self.current_monster.name)
+        #        self.current_monster.stats.hp = self.current_monster.stats.max_hp
+        #        self.current_monster.stats.mp = self.current_monster.stats.max_mp
                 
-                self.monster_defeated = False
-                self.respawn_time = None
+        #        self.monster_defeated = False
+        #        self.respawn_time = None
 
-                self.ready_time = pygame.time.get_ticks() + self.post_respawn_delay
+        #        self.ready_time = pygame.time.get_ticks() + self.post_respawn_delay
 
-                if self.auto_combat_enabled:
-                     self.player_initiated = True
+        #        if self.auto_combat_enabled:
+        #             self.player_initiated = True
 
-            return
+        #    return
 
         if not self.player_initiated:
             if hasattr(self, "auto_combat_enabled") and self.auto_combat_enabled:
                  self.player_initiated = True
             else:
                  return
+
+        #prevent enemy action if stunned
+        if hasattr(self.current_monster, "is_stunned") and self.current_monster.is_stunned:
+            if time.time() < self.current_monster.stun_expires_at:
+                return
+            else:
+                self.current_monster.is_stunned = False
 
         if current_time - self.last_player_attack >= self.player_attack_delay:
             if self.player.is_alive() and self.current_monster.is_alive():
@@ -124,40 +132,7 @@ class CombatManager:
                      target = "player"
                 )
 
-        if not self.current_monster.is_alive() and not self.monster_defeated:
-            self.monster_defeated = True
             
-            self.combat_log.append(f"{self.current_monster.name} was defeated!")
-            exp = self.current_monster.exp_reward
-            drops = self.loot_system.generate_loot(self.current_monster.name)
-            print("You found:", drops)
-            
-            for drop in drops:
-                item_name = drop["item"]
-                qty = drop["quantity"]
-
-                if item_name.lower() == "gold coins":
-                    self.player.gold += qty
-                    print(f"[LOOT] +{qty} Gold Coins (Total: {self.player.gold})")
-                    self.loot_log.append(f"+{qty} Gold Coins")
-                    continue
-                else:                    
-                    self.player.add_item(item_name, qty)
-                    self.loot_log.append(f"+{qty} {item_name}")      
-                self.loot_log = self.loot_log[-5:]
-            
-            self.player.gain_exp(exp)
-            self.combat_active = True
-            something_happened = True
-            self.player_initiated = False
-            
-            self.respawn_time = pygame.time.get_ticks() + 1000
-            
-            return
-            
-        
-
-
         if not self.player.is_alive():
             self.combat_log.append(f"{self.player.name} was defeated!")
             self.combat_active = False
@@ -364,6 +339,17 @@ class CombatManager:
         self.projectiles = [p for p in self.projectiles if not p["done"]]
 
     def add_burn_effect(self, target, damage, interval, duration):
+        if not hasattr(target, "active_effects"):
+            target.active_effects = []
+        
+        target.active_effects.append({
+            "name": "Burn",
+            "color": (255, 80, 0),
+            "expires": time.time() + duration,
+            "duration": duration,
+            "start": time.time()
+        })
+        
         self.active_burns.append({
             "target": target,
             "damage": damage,
@@ -403,3 +389,43 @@ class CombatManager:
                 )
             if burn["elapsed"] >= burn["duration"]:
                 self.active_burns.remove(burn)
+
+    def spawn_heal_effect(self, target, amount):
+        #creates a burst of particles for the heal spell
+        if target == "player":
+            base_x = self.player.game.player_draw_x + 75
+            base_y = self.player.game.player_draw_y + 60
+        else:
+            base_x = self.game.enemy_sprite_rect.centerx
+            base_y = self.game.enemy_sprite_rect.centery
+
+        for _ in range(80):
+            p = {
+                "x": base_x + random.randint(-10, 10),
+                "y": base_y + random.randint(-5, 5),
+                "vx": random.uniform(-0.4, 0.4),
+                "vy": random.uniform(-1.5, -0.3),
+                "size": random.randint(4, 7),
+                "alpha": 255,
+                "color": (0, random.randint(200, 255), random.randint(120, 255)),  # green/teal
+                "gravity": 0.03,
+            }
+            self.heal_spell_particles.append(p)
+
+    def update_heal_spell_particles(self, dt):
+        for p in list(self.heal_spell_particles):
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+            p["vy"] += p["gravity"]
+
+            p["alpha"] -= 3
+            if p["alpha"] <= 0:
+                self.heal_spell_particles.remove(p)
+                continue
+
+    def draw_heal_spell_particles(self, surface):
+        for p in self.heal_spell_particles:
+            s = pygame.Surface((p["size"], p["size"]), pygame.SRCALPHA)
+            s.fill((*p["color"], max(0, p["alpha"])))
+            surface.blit(s, (p["x"], p["y"]))
+
