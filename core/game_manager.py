@@ -28,10 +28,21 @@ class GameManager:
         self.show_inventory = False
         self.show_spell_bar = False
         self.spell_buttons = {}
+        self.buff_icons = {}
         self.vendor_window = VendorWindow(self)
+        self.combat_log_offset = 0
+        self.combat_log_at_bottom = True
         
+        def load_icon(name, filename):
+            path = os.path.join("assets", "images", filename)
+            if os.path.exists(path):
+                img = pygame.image.load(path).convert_alpha()
+                img = pygame.transform.scale(img, (26, 26))
+                self.buff_icons[name.lower()] = img
+            else:
+                print(f"[WARNING] Buff icon missing: {path}")
         
-        
+        load_icon("burn", "burn_debuff1.png")
         
         
 
@@ -58,7 +69,7 @@ class GameManager:
 
         self.player = Player(item_manager = self.items)
         self.player.game = self
-        self.combat = CombatManager(self.player, self.current_monster, self.loot_system)
+        self.combat = CombatManager(self.player, self.current_monster, self.loot_system, self)
         self.combat.auto_callback = lambda: self.auto_combat_enabled
 
     
@@ -129,6 +140,18 @@ class GameManager:
             # ✅ Left-click inside inventory does nothing (prevents closing)
             return 
 
+        #combat log mouse wheel scrolling
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 4: #scroll up
+                self.combat.user_is_scrolling = True
+                self.combat.log_scroll = max(self.combat.log_scroll - 1, 0)
+            elif event.button == 5: #scroll down
+                max_scroll = max(0, len(self.combat.combat_log) - 1)
+                self.combat.log_scroll = min(self.combat.log_scroll + 1, max_scroll)
+
+                if self.combat.log_scroll == max_scroll:
+                    self.combat.user_is_scrolling = False
+
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.state == "title":
                 if self.start_button.collidepoint(event.pos):
@@ -180,7 +203,7 @@ class GameManager:
                             else:
                                 self.current_monster = Monster(name = name, level = 1)
 
-                            self.combat = CombatManager(self.player, self.current_monster, self.loot_system)
+                            self.combat = CombatManager(self.player, self.current_monster, self.loot_system, self)
                             self.state= "combat"
 
                             print("✅ Combat Started!")
@@ -195,7 +218,7 @@ class GameManager:
                         if rect.collidepoint(event.pos):
                             if label == "Attack":
                                 self.combat.player_initiated = True
-                                print("Combat started!")
+                                #print("Combat started!")
                                 return
                             elif label == "Auto":
                                 if not self.player.auto_combat_unlocked:
@@ -241,7 +264,7 @@ class GameManager:
                                     else:
                                         spell = self.spell_slots.get(slot_index)
                                         if spell:
-                                            print(f"[CAST DEBUG] Casting {spell.name} id={id(spell)} from slot {slot_index}")
+                                            #print(f"[CAST DEBUG] Casting {spell.name} id={id(spell)} from slot {slot_index}")
                                             self.combat.cast_spell(spell.name)
 
                                 return
@@ -314,10 +337,14 @@ class GameManager:
         self.combat.update_projectiles(dt)
         self.combat.update_burns(dt)
         self.combat.update_heal_spell_particles(dt)
+        #print("[DEBUG] calling update_battlecry_waves, waves:", len(self.combat.battlecry_waves))
+        self.combat.update_battlecry_waves(dt)
 
         self.player.remove_expired_effects()
         if self.current_monster:
+            #print("[DEBUG ACTIVE EFFECTS MONSTER] =", self.current_monster.active_effects)
             self.current_monster.remove_expired_effects()
+            
 
         
         # ==========================================
@@ -326,7 +353,7 @@ class GameManager:
         if self.current_monster and not self.current_monster.is_alive() and not self.monster_defeated:
             self.monster_defeated = True
 
-            self.combat.combat_log.append(f"{self.current_monster.name} was defeated!")
+            self.combat.add_log(f"{self.current_monster.name} was defeated!")
 
             exp = self.current_monster.exp_reward
             drops = self.loot_system.generate_loot(self.current_monster.name)
@@ -495,6 +522,7 @@ class GameManager:
         tiny_font = pygame.font.Font(None, 18)
         label_font = tiny_font
         label_color = WHITE
+        self.hovered_effect = None
 
         player_x = 38
         player_y = 10
@@ -699,11 +727,13 @@ class GameManager:
         combat_log_box = pygame.Rect(left_x, log_y, log_width, log_height)
         pygame.draw.rect(self.screen, (20, 20, 20), combat_log_box, border_radius = 8)
         pygame.draw.rect(self.screen, (80, 80, 80), combat_log_box, width = 2, border_radius = 8)
+
+        self.draw_combat_log(self.screen, combat_log_box)
              
         #combat log text                             
-        for i, line in enumerate(self.combat.combat_log[-5:]):
-            text = small_font.render(line, True, WHITE)
-            self.screen.blit(text, (combat_log_box.x + 10, combat_log_box.y + 10 + i * 24))
+        #for i, line in enumerate(self.combat.combat_log[-5:]):
+        #    text = small_font.render(line, True, WHITE)
+        #    self.screen.blit(text, (combat_log_box.x + 10, combat_log_box.y + 10 + i * 24))
 
 
         #loot log text
@@ -746,6 +776,7 @@ class GameManager:
 
         self.combat.draw_floating_text(self.screen)
         self.combat.draw_heal_spell_particles(self.screen)
+        self.combat.draw_battlecry_waves(self.screen)
 
         #for p in self.combat.heal_spell_particles:
         #    s = pygame.Surface((p["size"]), pygame.SRCALPHA)
@@ -891,24 +922,42 @@ class GameManager:
             self.ui_mgr.draw_spell_tooltip(self.screen, hovered_spell, hover_mouse_pos)
             pygame.display.flip()
 
+        if hasattr(self, "hovered_effect") and self.hovered_effect:
+            self.draw_effect_tooltip(self.hovered_effect, pygame.mouse.get_pos())
+
     def draw_effects(self, effects, start_x, start_y):
         box_size = 26
         padding = 4
+        mouse_x, mouse_y = pygame.mouse.get_pos()
 
         for i, effect in enumerate(effects):
             x = start_x + i * (box_size + padding)
             rect = pygame.Rect(x, start_y, box_size, box_size)
 
-            #placeholder box
-            pygame.draw.rect(self.screen, effect["color"], rect)
+            icon_key = effect.get("icon", "").lower()
+            icon = self.buff_icons.get(icon_key)
+
+            bg_color = (40, 40, 40)
+            pygame.draw.rect(self.screen, bg_color, rect)
             pygame.draw.rect(self.screen, (255, 255, 255), rect, 2)
 
-            #optional text (first letter of buff for now)    
-            letter = effect["name"][0]
-            text = self.font_small.render(letter, True, (0, 0, 0))
-            self.screen.blit(text, text.get_rect(center = rect.center))
+            if icon:
+                self.screen.blit(icon, rect.topleft)
+                pygame.draw.rect(self.screen, (255, 0, 0), rect, 1)
+            else:
+                #placeholder box
+                pygame.draw.rect(self.screen, effect["color"], rect)
+                pygame.draw.rect(self.screen, (255, 255, 255), rect, 2)
+
+                #optional text (first letter of buff for now)    
+                letter = effect["name"][0]
+                text = self.font_small.render(letter, True, (0, 0, 0))
+                self.screen.blit(text, text.get_rect(center = rect.center))
 
             self.draw_radial_cooldown(self.screen, rect, effect)
+
+            if rect.collidepoint(mouse_x, mouse_y):
+                self.hovered_effect = effect
 
     def assign_spell_to_slot(self, slot_index, spell):
         #prevent duplicates
@@ -925,7 +974,7 @@ class GameManager:
             self.ui_mgr.spellbook_window.visible = False
         elif hasattr(self, "spellbook_window"):
             self.spellbook_window.visible = False
-      
+    
 
     def draw_player_buffs(self):
             effects = getattr(self.player, "active_effects", [])
@@ -941,9 +990,36 @@ class GameManager:
 
             self.draw_effects(effects, start_x, start_y)
 
+            if self.hovered_effect:
+                self.draw_effect_tooltip(self.hovered_effect, pygame.mouse.get_pos())
+            #box_size = 26
+            #padding = 4
+
+            #hovered_buff = None
+            #hover_mouse_pos = None
+            #mouse_pos = pygame.mouse.get_pos()
+
+            #for i, effect in enumerate(effects):
+            #    x = start_x + i * (box_size + padding)
+            #    rect = pygame.Rect(x, start_y, box_size, box_size)
+
+            #    pygame.draw.rect(self.screen, effect["color"], rect)
+            #    pygame.draw.rect(self.screen, (255, 255, 255), rect, 2)
+
+            #    letter = effect["name"][0]
+            #    text = self.font_small.render(letter, True, (0, 0, 0))
+            #    self.screen.blit(text, text.get_rect(center = rect.center))
+
+            #    self.draw_radial_cooldown(self.screen, rect, effect)
+
+            #    if rect.collidepoint(mouse_pos):
+            #        hovered_buff = effect
+            #        hover_mouse_pos = mouse_pos
+
+            #if hovered_buff:
+            #    self.draw_effect_tooltip(hovered_buff, hover_mouse_pos)            
+
     def draw_enemy_buffs(self):
-            effects = getattr(self.current_monster, "active_effects", [])
-            #print("[ENEMY BUFF DEBUG] effects =", effects)
             if not self.current_monster:
                 return
 
@@ -958,7 +1034,35 @@ class GameManager:
             start_x = frame_x + 10
             start_y = frame_y + frame_height + 8
 
-            self.draw_effects(effects, start_x, start_y)  
+            self.draw_effects(effects, start_x, start_y)
+
+            if self.hovered_effect:
+                self.draw_effect_tooltip(self.hovered_effect, pygame.mouse.get_pos())
+            #box_size = 26
+            #padding = 4
+
+            #hovered_buff = None
+            #hover_mouse_pos = None
+            #mouse_pos = pygame.mouse.get_pos()
+
+            #for i, effect in enumerate(effects):
+            #    x = start_x + i * (box_size + padding)
+            #    rect = pygame.Rect(x, start_y, box_size, box_size)
+
+            #    pygame.draw.rect(self.screen, effect["color"], rect)
+            #    pygame.draw.rect(self.screen, (255, 255, 255), rect, 2)
+
+            #    letter = effect["name"][0]
+            #    text = self.font_small.render(letter, True, (0, 0, 0))
+            #    self.screen.blit(text, text.get_rect(center = rect.center))
+
+            #    self.draw_radial_cooldown(self.screen, rect, effect)
+
+            #    if rect.collidepoint(mouse_pos):
+            #        hovered_buff = effect
+            #        hover_mouse_pos = mouse_pos
+            #if hovered_buff:
+            #    self.draw_effect_tooltip(hovered_buff, hover_mouse_pos)  
 
     def draw_radial_cooldown(self, surface, rect, effect):
         now = time.time()
@@ -993,3 +1097,119 @@ class GameManager:
         frame = sheet.subsurface(frame_rect)
 
         return frame
+    
+    def draw_effect_tooltip(self, effect, mouse_pos):
+        name = effect["name"]
+        desc = effect.get("description", "")
+
+        now = time.time()
+        remaining = max(0, effect["expires"] - now)
+
+        lines = [
+            name,
+            desc,
+            f"Time left: {remaining:.1f}s"
+        ]
+
+        font = self.font_small
+        padding = 8
+
+        width = max(font.size(line)[0] for line in lines) + padding * 2
+        height = len(lines) * 18 + padding * 2
+
+        x, y = mouse_pos
+        tooltip_x = x + 15
+        tooltip_y = y + 15
+
+        if tooltip_x + width > SCREEN_WIDTH:
+            tooltip_x = SCREEN_WIDTH - width - 5
+
+        if tooltip_y + height > SCREEN_HEIGHT:
+            tooltip_y = SCREEN_HEIGHT - height - 5
+        
+        tooltip_rect = pygame.Rect(tooltip_x, tooltip_y, width, height)
+
+        pygame.draw.rect(self.screen, (20, 20, 20, 200), tooltip_rect)
+        pygame.draw.rect(self.screen, (255, 255, 255), tooltip_rect, 2)
+
+        for i, line in enumerate(lines):
+            text_surf = font.render(line, True, (255, 255, 255))
+            self.screen.blit(text_surf, (tooltip_rect.x + padding, tooltip_rect.y + padding + i * 18))
+
+
+    def wrap_text(self, text, font, max_width):
+        words = text.split(" ")
+        lines = []
+        current = ""
+
+        for word in words:
+            test = current + word + " "
+            if font.size(test)[0] <= max_width:
+                current = test
+            else:
+                lines.append(current)
+                current = word + " "
+        if current:
+            lines.append(current)
+        return lines
+    
+    def draw_combat_log(self, surface, combat_log_box):
+        font = pygame.font.Font(None, 20)
+
+        x = combat_log_box.x + 10
+        y = combat_log_box.y + 10
+        w = combat_log_box.width - 20
+        h = combat_log_box.height - 20
+
+        #clip region so text never draws outside box
+        surface.set_clip(combat_log_box)
+
+        #wrap all log entires to visible lines
+        wrapped = []
+        for line in self.combat.combat_log:
+            wrapped.extend(self.wrap_text(line, font, w))
+
+        total_lines = len(wrapped)
+
+        #calculate how many lines fit in the box
+        max_visible_lines = h // self.combat.log_line_height
+
+        #clamp scroll to never scroll beyond real lines
+        max_scroll = max(0, total_lines - max_visible_lines)
+        self.combat.log_scroll = max(0, min(self.combat.log_scroll, max_scroll))
+
+        if not self.combat.user_is_scrolling:
+            self.combat.log_scroll = max_scroll
+
+        if self.combat.force_scroll_to_bottom:
+            self.combat.log_scroll = max_scroll
+            self.combat.force_scroll_to_bottom = False
+
+        #determine lines that appear
+        start = max(0, total_lines - max_visible_lines - self.combat.log_scroll)
+        end = start + max_visible_lines
+
+        visible_lines = wrapped[start:end]
+
+        draw_y = y
+        for line in visible_lines:
+            rendered = font.render(line, True, (255, 255, 255))
+            surface.blit(rendered, (x, draw_y))
+            draw_y += self.combat.log_line_height
+
+        surface.set_clip(None)
+
+        #scroll bar
+        if total_lines > max_visible_lines:
+            bar_h = int((max_visible_lines / total_lines) * h)
+            scroll_percent = self.combat.log_scroll / max_scroll
+            bar_y = int(scroll_percent * (h - bar_h))
+
+            scrollbar_rect = pygame.Rect(
+                combat_log_box.right - 6,
+                combat_log_box.y + 3 + bar_y,
+                4,
+                bar_h
+            )
+
+            pygame.draw.rect(surface, (180, 180, 180), scrollbar_rect)

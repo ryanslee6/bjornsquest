@@ -8,15 +8,22 @@ from systems.spell_system import get_default_spellbook
 
 
 class CombatManager:
-    def __init__(self, player, current_monster, loot_system):
+    def __init__(self, player, current_monster, loot_system, game):
         self.player = player
         self.current_monster = current_monster
+        self.game = game
         self.combat_log = []
         self.loot_log = []
+        self.max_log_entries = 50
+        self.log_scroll = 0
+        self.log_line_height = 20
+        self.user_is_scrolling = False
+        self.force_scroll_to_bottom = False
         self.floating_text_player = []
         self.floating_text_enemy = []
         self.projectiles = []
         self.active_burns = []
+        self.battlecry_waves = []
         self.combat_active = True
         self.monster_defeated = False
         self.respawn_time = None
@@ -93,10 +100,10 @@ class CombatManager:
             if self.player.is_alive() and self.current_monster.is_alive():
                 dmg, is_crit = self.player.attack(self.current_monster)
                 if is_crit:
-                    self.combat_log.append(f"{self.player.name} crits {self.current_monster.name} for {dmg} damage!")
+                    self.add_log(f"{self.player.name} crits {self.current_monster.name} for {dmg} damage!")
                     text_type = "crit"
                 else:
-                    self.combat_log.append(f"{self.player.name} hits {self.current_monster.name} for {dmg} damage!")
+                    self.add_log(f"{self.player.name} hits {self.current_monster.name} for {dmg} damage!")
                     text_type = "damage"
                 self.last_player_attack = current_time
                 something_happened = True
@@ -117,10 +124,10 @@ class CombatManager:
             if self.player.is_alive() and self.current_monster.is_alive():
                 dmg, is_crit = self.current_monster.attack(self.player)
                 if is_crit:
-                    self.combat_log.append(f"{self.current_monster.name} crits {self.player.name} for {dmg} damage!")
+                    self.add_log(f"{self.current_monster.name} crits {self.player.name} for {dmg} damage!")
                     text_type = "crit"
                 else:
-                    self.combat_log.append(f"{self.current_monster.name} hits {self.player.name} for {dmg} damage!")
+                    self.add_log(f"{self.current_monster.name} hits {self.player.name} for {dmg} damage!")
                     text_type = "damage"
                 self.last_monster_attack = current_time
                 something_happened = True
@@ -134,7 +141,7 @@ class CombatManager:
 
             
         if not self.player.is_alive():
-            self.combat_log.append(f"{self.player.name} was defeated!")
+            self.add_log(f"{self.player.name} was defeated!")
             self.combat_active = False
             something_happened = True
 
@@ -154,7 +161,12 @@ class CombatManager:
              "heal": {"color": (120, 255, 120), "outline": (0, 100, 0), "font_size": 40},
              "mana": {"color": (100, 150, 255), "outline": (0, 0, 80), "font_size": 40},
              "spell": {"color": (100, 200, 255), "outline": (0, 40, 120), "font_size": 70},
-             "burn": {"color": (255, 100, 0), "outline": (80, 0, 0), "font_size": 40}
+             "spell_crit": {"color": (180, 120, 255), "outline": (255, 255, 180), "font_size": 80},
+             "burn": {"color": (255, 100, 0), "outline": (80, 0, 0), "font_size": 40},
+             "buff": {"color": (80, 180, 255), "outline": (255, 255, 120), "font_size": 40},
+             "debuff": {"color": (220, 60, 120), "outline": (40, 0, 40), "font_size": 40},
+             "poison": {"color": (120, 255, 80), "outline": (20, 60, 0), "font_size": 40},
+             "combat": {"color": (220, 230, 255), "outline": (40, 40, 80), "font_size": 35}
         }
         style = presets.get(text_type, presets["damage"])
         if color:
@@ -172,8 +184,16 @@ class CombatManager:
                     x = base_x - 80
                 elif text_type == "spell":
                     x = base_x + 120
+                elif text_type == "spell_crit":
+                    x = base_x + 115
                 elif text_type == "burn":
                     x = base_x + 60
+                elif text_type == "buff":
+                    x = base_x - 10
+                elif text_type == "debuff":
+                    x = base_x - 10
+                elif text_type == "combat":
+                    x = base_x - 7
                 else:
                     x = base_x + 80
                 
@@ -186,6 +206,8 @@ class CombatManager:
                     x = base_x + 80
                 elif text_type == "spell":
                     x = base_x - 120
+                elif text_type == "spell_crit":
+                    x = base_x - 115
                 elif text_type == "burn":
                     x = base_x - 60
                 else:
@@ -202,7 +224,7 @@ class CombatManager:
             "base_y": y,
             "alpha": 255,
             "scale": 1.0,
-            "float_speed": 0.4,
+            "float_speed": 40,
             "time": 0,
             "outline": style["outline"],
             "color": style["color"],
@@ -219,29 +241,25 @@ class CombatManager:
     def update_floating_text(self, dt):
         for group in [self.floating_text_enemy, self.floating_text_player]:
             for entry in group[:]:
-                if "time" not in entry:
-                    entry["time"] = 0
-                    entry["vy"] = -0.02
-                    entry["base_y"] = entry.get("y", 0)
-                    entry["alpha"] = 255
-                if "vy" not in entry:
-                    entry["vy"] = -0.02
-                
+                # Increase internal timer
                 entry["time"] += dt
 
-                entry["y"] += entry["vy"] * dt
+                # FLOAT UPWARD — use a real speed (pixels per second)
+                float_speed = entry.get("float_speed", 40)  # 40 px/sec upward
+                entry["y"] += -float_speed * dt
 
-                
+                # TIMING (seconds)
+                lifetime = 1.2        # total life
+                fade_start = 0.6      # when fading begins
 
-                lifetime = 3000
-                fade_start = 1500
-                
+                # FADING
                 if entry["time"] > fade_start:
                     fade_progress = (entry["time"] - fade_start) / (lifetime - fade_start)
-                    entry["alpha"] = int(255 * max(0, 1 - fade_progress))
+                    entry["alpha"] = int(255 * (1 - max(0, min(1, fade_progress))))
                 else:
                     entry["alpha"] = 255
 
+                # REMOVE WHEN DONE
                 if entry["time"] >= lifetime or entry["alpha"] <= 0:
                     group.remove(entry)
 
@@ -295,9 +313,9 @@ class CombatManager:
             print("⚔️ Combat initiated by spell cast!")
 
 
-        for spell in self.player.game.spell_slots.values():
+        for spell in self.game.spell_slots.values():
             if spell.name.lower() == spell_name.lower():
-                print(f"[CAST DEBUG] Found {spell.name} id={id(spell)} in slots")
+                
                 if not spell.can_cast(self.player):
                     return False
                 success = spell.cast(self.player, self.current_monster, self)
@@ -331,7 +349,7 @@ class CombatManager:
             if dist < 20:
                 p["done"] = True
                 continue
-            step = p["speed"] * (dt / 1000)
+            step = p["speed"] * dt
             if dist > 0:
                 p["x"] += dx / dist * step
                 p["y"] += dy / dist * step
@@ -347,7 +365,9 @@ class CombatManager:
             "color": (255, 80, 0),
             "expires": time.time() + duration,
             "duration": duration,
-            "start": time.time()
+            "start": time.time(),
+            "description": f"Burns for {damage} fire damage every {interval}s.",
+            "icon": "burn"
         })
         
         self.active_burns.append({
@@ -379,7 +399,7 @@ class CombatManager:
                 log_message = f"{burn['target'].name} takes {burn['damage']} burn damage!"
                 print(log_message)
                 if hasattr(self, "combat_log"):
-                    self.combat_log.append(log_message)
+                    self.add_log(log_message)
 
                 self.add_floating_text(
                     f"{burn['damage']}",
@@ -429,3 +449,67 @@ class CombatManager:
             s.fill((*p["color"], max(0, p["alpha"])))
             surface.blit(s, (p["x"], p["y"]))
 
+    def spawn_battlecry_wave(self):
+            # Get player sprite world position
+            sprite = self.game.player.sprite
+            sprite_x = self.game.player_draw_x + 85 + (200 - sprite.get_width()) // 2
+            sprite_y = 300 + (180 - sprite.get_height()) // 2
+
+            base_x = sprite_x + sprite.get_width() // 2 - 115
+            base_y = sprite_y + sprite.get_height()
+
+            
+            # Spawn multiple waves with horizontal offsets
+            for i in range(12):
+                self.battlecry_waves.append({
+                    "x": base_x + random.randint(-40, 40),     # horizontal spread
+                    "y": base_y,
+                    "height": 0,
+                    "max_height": random.randint(40, 100),
+                    "speed": random.uniform(2.5, 3.2),         # vertical animation speed
+                    "lifetime": random.uniform(0.35, 0.55),
+                    "age": 0,
+                    "thickness": random.randint(3, 6),         # easier to see
+                    "color": (255, random.randint(80, 120), 80)
+                })
+    
+    def update_battlecry_waves(self, dt):
+        for wave in list(self.battlecry_waves):
+            wave["age"] += dt
+            t = wave["age"] / wave["lifetime"]
+
+            if t >= 1:
+                self.battlecry_waves.remove(wave)
+                continue
+
+            # Rising then falling animation curve
+            if t < 0.5:
+                wave["height"] = wave["max_height"] * (t / 0.5)
+            else:
+                wave["height"] = wave["max_height"] * (1 - (t - 0.5) / 0.5)
+
+            # Slight horizontal drift (makes them visible)
+            wave["x"] += random.uniform(-0.7, 0.7)
+    
+    def draw_battlecry_waves(self, surface):
+                for wave in self.battlecry_waves:
+                    x = int(wave["x"])
+                    base_y = int(wave["y"])
+                    h = int(wave["height"])
+
+                    pygame.draw.line(
+                        surface,
+                        wave["color"],
+                        (x, base_y),
+                        (x, base_y - h),
+                        wave["thickness"]
+                    )
+
+    def add_log(self, message):
+        self.combat_log.append(message)
+
+        if len(self.combat_log) > 50:
+            self.combat_log.pop(0)
+
+        if not self.user_is_scrolling:
+            self.force_scroll_to_bottom = True

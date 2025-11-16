@@ -23,7 +23,7 @@ def main():
     
             game.handle_event(event)
 
-        dt = clock.tick(60)
+        dt = clock.tick(60) / 1000.0
         
         game.update(dt)
         game.draw()

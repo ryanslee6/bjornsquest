@@ -52,7 +52,7 @@ class Fireball(Spell):
         log_message = f"{caster.name} casts {self.name} for {dmg} damage!"
         print(log_message)
         if hasattr(combat, "combat_log"):
-            combat.combat_log.append(log_message)
+            combat.add_log(log_message)
 
         burn_duration = 5.0
         burn_interval = 1.0
@@ -135,7 +135,7 @@ class Heal(Spell):
         log_message = f"{caster.name} casts {self.name} and heals for {heal_amount} HP!"
         print(log_message)
         if hasattr(combat, "combat_log"):
-            combat.combat_log.append(log_message)
+            combat.add_log(log_message)
         
         combat.add_floating_text(
             f"{heal_amount}",
@@ -175,12 +175,15 @@ class BattleCry(Spell):
 
         caster.stats.mp -= self.mana_cost
 
+        combat.spawn_battlecry_wave()
+
         caster.stats.strength = int(caster.stats.strength + self.str_buff)
         if not hasattr(caster, "active_buffs"):
             caster.active_effects = []
         caster.active_effects.append({
             "name": self.name,
             "color": (100, 150, 255),
+            "description": f"Increase strength by {self.str_buff} for {self.buff_duration}s.",
             "duration": self.buff_duration,
             "start": time.time(),
             "expires": time.time() + self.buff_duration,
@@ -190,12 +193,12 @@ class BattleCry(Spell):
         log_message = f"{caster.name} uses {self.name}! Strength increased by {self.str_buff} for {int(self.buff_duration)}s."
         print(log_message)
         if hasattr(combat, "combat_log"):
-            combat.combat_log.append(log_message)
+            combat.add_log(log_message)
 
         combat.add_floating_text(
             "Battle Cry!",
             0, 0,
-            text_type = "damage",
+            text_type = "buff",
             target = "player"
         )
 
@@ -229,7 +232,7 @@ class LightningBolt(Spell):
         log_message = f"{caster.name} casts {self.name} for {dmg} damage and stuns the enemy!"
         print(log_message)
         if hasattr(combat, "combat_log"):
-            combat.combat_log.append(log_message)
+            combat.add_log(log_message)
 
         combat.add_floating_text(
             f"{dmg}",
@@ -247,7 +250,8 @@ class LightningBolt(Spell):
             "start": time.time(),
             "duration": self.stun_duration,
             "expires": time.time() + self.stun_duration,
-            "type": "stun"
+            "type": "stun",
+            "description": f"Stun the enemy for {self.stun_duration:.1f}s."
         })
 
         if not hasattr(target, "is_stunned"):
