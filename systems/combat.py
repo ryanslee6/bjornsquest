@@ -207,6 +207,8 @@ class CombatManager:
                 base_y = sh - 420
                 if text_type == "heal":
                     x = base_x - 80
+                elif text_type == "mana":
+                    x = base_x - 75
                 elif text_type == "spell":
                     x = base_x + 120
                 elif text_type == "spell_crit":

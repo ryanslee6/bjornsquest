@@ -34,6 +34,7 @@ class ConsumableItem(Item):
     def __init__(self, item_id, data):
         super().__init__(item_id, data)
         self.heal_amount = data.get("heal_amount", 0)
+        self.mana_amount = data.get("mana_amount", 0)
 
     def use(self, player):
         #heal player
@@ -61,6 +62,16 @@ class ConsumableItem(Item):
                 target= "player",
                 text_type = "heal",
                 icon = icon_surface
+            )
+        if self.mana_amount > 0:
+            player.stats.mp = min(player.stats.max_mp, player.stats.mp + self.mana_amount)
+            print(f"{player.name} restored {self.mana_amount} MP!")
+
+            player.game.combat.add_floating_text(
+                f"+{self.mana_amount} MP",
+                0, 0,
+                target = "player",
+                text_type = "mana"
             )
 
     def tooltip_text(self):

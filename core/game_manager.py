@@ -36,6 +36,7 @@ class GameManager:
         self.character_window = CharacterWindow(self)
         self.combat_log_offset = 0
         self.combat_log_at_bottom = True
+        self.fps_font = pygame.font.Font(None, 30)
         
         def load_icon(name, filename):
             path = os.path.join("assets", "images", filename)
@@ -191,6 +192,10 @@ class GameManager:
                     
                         elif text == "Inventory":
                             self.show_inventory = not self.show_inventory
+
+                            if self.show_inventory:
+                                self.inventory_window.render_cache = None
+                                self.inventory_window.cached_inventory = None
                             print("[UI] Toggling Inventory Window")
                             return
                         
@@ -436,6 +441,12 @@ class GameManager:
 
         if self.levelup_window.visible:
             self.levelup_window.draw(self.screen)
+
+        fps = int(self.clock.get_fps())
+        fps_color = (0, 255, 0) if fps >= 55 else (255, 215, 0) if fps >= 45 else (255, 0, 0)
+
+        fps_text = self.fps_font.render(f"FPS: {fps}", True, fps_color)
+        self.screen.blit(fps_text, (10, 60))
 
     def draw_title(self):
         self.screen.blit(self.title_image, (0, 0))

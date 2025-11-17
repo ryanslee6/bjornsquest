@@ -28,7 +28,7 @@
         "name": "Small Mana Potion",
         "type": "consumable",
         "description": "Restores a small amount of mana.",
-        "restore_amount": 15,
+        "mana_amount": 15,
         "rarity": "common",
         "icon": "smallmppotion1.png",
         "stackable": true

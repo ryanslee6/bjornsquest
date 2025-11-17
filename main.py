@@ -14,6 +14,7 @@ def main():
     
 
     game = GameManager(screen)
+    game.clock = clock
 
     running = True
     while running:
