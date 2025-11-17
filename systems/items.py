@@ -1,11 +1,21 @@
+import pygame
+import os
+
 class Item:
-    def __init__(self, item_id, data):
+    def __init__(self, item_id, data, sprite = None):
         self.id = item_id
         self.name = data.get("name", item_id)
         self.type = data.get("type", "misc")
         self.description = data.get("description", "")
         self.rarity = data.get("rarity", "common")
         self.stackable = data.get("stackable", True)
+        self.sprite = sprite
+
+        if sprite:
+            path = os.path.join("assets", "images", sprite)
+            self.icon = pygame.image.load(path).convert._alpha()
+        else:
+            self.icon = None
 
     def use(self, player):
         #override in child classes
@@ -41,11 +51,16 @@ class ConsumableItem(Item):
             
             player.game.combat.spawn_heal_particles(px, py)
 
+            icon_surface = None
+            if hasattr(self, "icon") and self.icon:
+                icon_surface = pygame.transform.scale(self.icon, (20, 20))
+
             player.game.combat.add_floating_text(
                 f"+{self.heal_amount} HP",
                 0, 0,
                 target= "player",
-                text_type = "heal"
+                text_type = "heal",
+                icon = icon_surface
             )
 
     def tooltip_text(self):

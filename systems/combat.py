@@ -96,10 +96,22 @@ class CombatManager:
             else:
                 self.current_monster.is_stunned = False
 
-        if current_time - self.last_player_attack >= self.player_attack_delay:
+        if current_time - self.last_player_attack >= self.player.stats.attack_speed:
             if self.player.is_alive() and self.current_monster.is_alive():
-                dmg, is_crit = self.player.attack(self.current_monster)
-                if is_crit:
+                dmg, is_miss, is_crit, is_dodged = self.player.attack(self.current_monster)
+                if is_miss:
+                    self.add_log(f"{self.player.name} misses {self.current_monster.name}!")
+                    self.add_floating_text("Miss!", 0, 0, text_type="combat", target="enemy")
+                    self.last_player_attack = current_time
+                    something_happened = True
+                    return
+                elif is_dodged:
+                    self.add_log(f"{self.current_monster.name} dodges {self.player.name}'s attack!")
+                    self.add_floating_text("Dodged!", 0, 0, text_type = "combat", target = "enemy")
+                    self.last_player_attack = current_time
+                    something_happened = True
+                    return
+                elif is_crit:
                     self.add_log(f"{self.player.name} crits {self.current_monster.name} for {dmg} damage!")
                     text_type = "crit"
                 else:
@@ -120,10 +132,23 @@ class CombatManager:
 
                 self.enemy_hit_flash_timer = pygame.time.get_ticks() + self.enemy_hit_flash_delay
 
-        if current_time - self.last_monster_attack >= self.monster_attack_delay:
+        if current_time - self.last_monster_attack >= self.current_monster.stats.attack_speed:
             if self.player.is_alive() and self.current_monster.is_alive():
-                dmg, is_crit = self.current_monster.attack(self.player)
-                if is_crit:
+                dmg, is_miss, is_crit, is_dodged = self.current_monster.attack(self.player)
+                if is_miss:
+                    self.add_log(f"{self.current_monster.name} misses {self.player.name}!")
+                    self.add_floating_text("Miss!", 0, 0, text_type="combat", target="player")
+                    self.last_player_attack = current_time
+                    something_happened = True
+                    return
+                
+                elif is_dodged:
+                    self.add_log(f"{self.player.name} dodges {self.current_monster.name}'s attack!")
+                    self.add_floating_text("Dodged!", 0, 0, text_type = "combat", target = "player")
+                    self.last_monster_attack = current_time
+                    something_happened = True
+                    return
+                elif is_crit:
                     self.add_log(f"{self.current_monster.name} crits {self.player.name} for {dmg} damage!")
                     text_type = "crit"
                 else:
@@ -148,13 +173,13 @@ class CombatManager:
         now = pygame.time.get_ticks()
         if not hasattr(self, "_last_tick"):
             self._last_tick = now
-        dt = now - self._last_tick
+        #dt = now - self._last_tick
         self.last_tick = now
         #self.update_floating_text(dt)
 
         return something_happened
     
-    def add_floating_text(self, text, x, y, color = None, target = "enemy", text_type = "damage"):
+    def add_floating_text(self, text, x, y, color = None, target = "enemy", text_type = "damage", icon = None):
         presets = {
              "damage": {"color": (255, 220, 50), "outline": (0, 0, 0), "font_size": 70},
              "crit": {"color": (255, 80, 80), "outline": (255, 255, 100), "font_size": 80},
@@ -210,6 +235,8 @@ class CombatManager:
                     x = base_x - 115
                 elif text_type == "burn":
                     x = base_x - 60
+                elif text_type == "combat":
+                    x = base_x + 7
                 else:
                     x = base_x - 80
                 
@@ -231,6 +258,7 @@ class CombatManager:
             "font_size": style["font_size"],
             "target": target,
             "type": text_type,
+            "icon": icon
         }
 
         if target == "enemy":
@@ -275,6 +303,7 @@ class CombatManager:
                 x = entry.get("x", 0)
                 y = entry.get("y", 0)
                 text = entry.get("text", "")
+                icon = entry.get("icon", None)
                 
                 
                 font = pygame.font.Font(None, font_size)
@@ -283,6 +312,16 @@ class CombatManager:
 
                 scaled = pygame.transform.rotozoom(text_surf, 0, scale)
                 rect = scaled.get_rect(center = (x, y))
+
+                if icon:
+                    icon_h = int(font_size * scale)
+                    icon_w = icon_h
+                    icon_surf = pygame.transform.smoothscale(icon, (icon_w, icon_h))
+
+                    icon_rect = icon_surf.get_rect(center = (x - icon_w, y))
+                    surface.blit(icon_surf, icon_rect)
+
+                    rect.x += icon_w
 
                 for ox, oy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     outline_surf = font.render(text, True, outline)
@@ -376,10 +415,14 @@ class CombatManager:
             "interval": interval,
             "duration": duration,
             "elapsed": 0,
+            "start": time.time(),
             "tick_timer": 0,
         })
 
     def update_burns(self, dt):
+        current_time = time.time()
+        
+
         for burn in self.active_burns[:]:
             target = burn["target"]
 
@@ -387,17 +430,24 @@ class CombatManager:
                 print(f"🔥 Burn on {target.name} ended (target defeated).")
                 self.active_burns.remove(burn)
                 continue
-            
-            
-            burn["elapsed"] += dt / 1000
-            burn["tick_timer"] += dt / 1000
+                  
+            if current_time >= burn["start"] + burn["duration"]:
+                self.active_burns.remove(burn)
+                continue
 
-            if burn["tick_timer"] >= burn["interval"]:
-                burn["tick_timer"] = 0
-                burn["target"].stats.hp = max(0, burn["target"].stats.hp - burn["damage"])
+            next_tick_time = burn.get("next_tick_time")
+
+            if next_tick_time is None:
+                burn["next_tick_time"] = burn["start"] + burn["interval"]
+                continue
+
+            if current_time >= burn["next_tick_time"]:
+                burn["next_tick_time"] += burn["interval"]
+                
+                target.stats.hp = max(0, target.stats.hp - burn["damage"])
                 
                 log_message = f"{burn['target'].name} takes {burn['damage']} burn damage!"
-                print(log_message)
+                
                 if hasattr(self, "combat_log"):
                     self.add_log(log_message)
 
@@ -407,8 +457,10 @@ class CombatManager:
                     text_type = "burn",
                     target = "enemy"
                 )
-            if burn["elapsed"] >= burn["duration"]:
+            
+            if current_time >= burn["start"] + burn["duration"]:
                 self.active_burns.remove(burn)
+                continue
 
     def spawn_heal_effect(self, target, amount):
         #creates a burst of particles for the heal spell

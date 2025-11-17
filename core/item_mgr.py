@@ -1,4 +1,5 @@
 import json
+import pygame
 from systems.items import Item, ConsumableItem
 
 class ItemManager:
@@ -10,6 +11,20 @@ class ItemManager:
         data = self.item_data[item_id]
 
         if data["type"] == "consumable":
-            return ConsumableItem(item_id, data)
+            item = ConsumableItem(item_id, data)
+        else:
+            item = Item(item_id, data)
+
+        icon_name = data.get("icon")
+        if icon_name:
+            try:
+                path = f"assets/images/{icon_name}"
+                item.icon = pygame.image.load(path).convert_alpha()
+            except Exception as e:
+                 print(f"[WARNING] Failed to load icon '{icon_name}' for item '{item_id}' — {e}")
+                 item.icon = None
+        else:
+            item.icon = None
+
         
-        return Item(item_id, data)
+        return item

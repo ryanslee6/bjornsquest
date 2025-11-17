@@ -22,8 +22,14 @@ class Monster:
             dexterity = data["dexterity"],
             constitution = data["constitution"],
             intelligence = data["intelligence"],
+            min_damage = data.get("min_damage", 1),
+            max_damage = data.get("max_damage", 3),
+            dodge_chance = data.get("dodge_chance", 0.0),
+            attack_speed = data.get("attack_speed", 1.0),
+            hit_chance = data.get("hit_chance", 0.90),
             is_player = False
         )
+        
         self.exp_reward = data["exp_reward"]
         self.sprite_path = os.path.join("assets", "images", data["sprite"])
         self.sprite = pygame.image.load(self.sprite_path).convert_alpha()
@@ -50,18 +56,32 @@ class Monster:
     
     def attack(self, target):
         import random
-        base_damage = self.stats.strength
+        #print("[DEBUG MONSTER ATTACK] hit_chance=", self.stats.hit_chance)
+
+        is_miss = random.random() > self.stats.hit_chance
+        if is_miss:
+            return 0, True, False, False
+
+        is_dodged = random.random() < target.stats.dodge_chance
+        if is_dodged:
+            return 0, False, False, True
+        
+        min_dmg, max_dmg = self.stats.get_damage_range()
+        base_damage = random.randint(min_dmg, max_dmg)
 
         if getattr(self, "is_stunned", False):
-            return 0, False
+            return 0, False, False, False
 
         
         is_crit = random.random() < self.stats.crit_chance
         if is_crit:    
             base_damage *= 2
+        
         damage = max(0, base_damage - target.stats.armor)
+        
         target.stats.hp = max(0, target.stats.hp - damage)
-        return damage, is_crit
+        
+        return damage, is_miss, is_crit, is_dodged
     
     def add_status_effect(self, name, duration, icon = None, color = (200, 200, 200)):
         if not hasattr(self, "active_effects"):

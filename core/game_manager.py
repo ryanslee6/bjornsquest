@@ -8,6 +8,8 @@ from systems.loot_system import LootSystem
 from core.ui_mgr import *
 from core.item_mgr import ItemManager
 from core.ui_mgr import SpellbookWindow
+from core.ui_mgr import CharacterWindow
+from core.ui_mgr import LevelUpWindow
 import time
 import math
 from pygame import gfxdraw
@@ -25,11 +27,13 @@ class GameManager:
         self.loot_system = LootSystem()
         self.items = ItemManager()
         self.inventory_window = InventoryWindow(self)
+        self.levelup_window = LevelUpWindow(self)
         self.show_inventory = False
         self.show_spell_bar = False
         self.spell_buttons = {}
         self.buff_icons = {}
         self.vendor_window = VendorWindow(self)
+        self.character_window = CharacterWindow(self)
         self.combat_log_offset = 0
         self.combat_log_at_bottom = True
         
@@ -139,18 +143,33 @@ class GameManager:
 
             # ✅ Left-click inside inventory does nothing (prevents closing)
             return 
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_c:
+                self.character_window.toggle()
 
+        if self.levelup_window.visible and event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                self.levelup_window.handle_click(event.pos)
+            return
         #combat log mouse wheel scrolling
         if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 4: #scroll up
-                self.combat.user_is_scrolling = True
+            if event.button == 4: #scroll up             
                 self.combat.log_scroll = max(self.combat.log_scroll - 1, 0)
-            elif event.button == 5: #scroll down
-                max_scroll = max(0, len(self.combat.combat_log) - 1)
-                self.combat.log_scroll = min(self.combat.log_scroll + 1, max_scroll)
 
-                if self.combat.log_scroll == max_scroll:
+                #if not at the bottom, enter manual scroll mode
+                self.combat.user_is_scrolling = (self.combat.log_scroll < self.combat.max_scroll)
+            
+            elif event.button == 5: #scroll down
+                total_lines = len(self.combat.wrapped_cache)
+                max_visible = self.combat.max_visible_lines
+                self.combat.max_scroll = max(0, total_lines - max_visible)
+
+                self.combat.log_scroll = min(self.combat.log_scroll + 1, self.combat.max_scroll)
+
+                if self.combat.log_scroll >= self.combat.max_scroll:
                     self.combat.user_is_scrolling = False
+                else:
+                    self.combat.user_is_scrolling = True
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.state == "title":
@@ -168,7 +187,6 @@ class GameManager:
                         
                         if text == "Fight":
                             self.state = "creature_select"
-                            print("Please select a creature to fight")
                             return
                     
                         elif text == "Inventory":
@@ -233,7 +251,6 @@ class GameManager:
                                 
                                 return
                             elif label == "Spells":
-                                print("🪄 Opening/Closing spell menu...")
                                 self.show_spell_bar = not self.show_spell_bar
                             elif label == "Use Item":
                                 pass
@@ -248,7 +265,6 @@ class GameManager:
                     if getattr(self, "show_spell_bar", False):
                         for label, rect in self.spell_buttons.items():
                             if rect.collidepoint(event.pos):
-                                print(f"Clicked {label}")
                                 
                                 if label == "Spellbook":
                                     self.spellbook_window.toggle()
@@ -287,37 +303,33 @@ class GameManager:
                     return
 
     def update(self, dt):
-        #hp regen buffer system
-        regen = self.player.stats.get_hp_regen()
-
+        #self.combat.update_burns(dt) #moved down to bottom with rest of updates
         if self.state == "combat":
             self.combat.update(dt)
-            regen *= 0.05
+            self.player.stats.hp_regen_multiplier = 0.1
+            self.player.stats.mp_regen_multiplier = 0.1
+        else:
+            self.player.stats.hp_regen_multiplier = 1.0
+            self.player.stats.mp_regen_multiplier = 1.0
 
-        #only regen if not full hp
-        if self.player.stats.hp < self.player.stats.max_hp:
-            #accumulate fractional regen over time
-            self.player.stats._hp_regen_buffer += regen
-
-            #when buffer reaches 1 or more, convert to integer healing
-            if self.player.stats._hp_regen_buffer >= 1:
-                heal_amount = int(self.player.stats._hp_regen_buffer)
-                self.player.stats._hp_regen_buffer -= heal_amount
-
-                #apply healing
-                self.player.stats.hp = min(
-                    self.player.stats.max_hp,
-                    self.player.stats.hp + heal_amount
-                )
-
+        hp_heal = self.player.stats.regen_tick()
+        if hp_heal > 0:
                 #floating heal text on regen
                 self.combat.add_floating_text(
-                    f"+{heal_amount}",
+                    f"+{hp_heal}",
                     0, 0,
                     text_type = "heal",
                     target = "player"
                 )
-            
+        mp_restore = self.player.stats.regen_mp_tick()
+        if mp_restore > 0:
+            self.combat.add_floating_text(
+                f"+{mp_restore} MP",
+                0, 0,
+                text_type = "mana",
+                target = "player"
+            )
+                 
         
         if self.state == "combat" and self.combat:            
             if self.combat.update(dt):
@@ -419,6 +431,12 @@ class GameManager:
         elif self.state == "combat":
             self.draw_combat_screen()
 
+        if self.character_window.visible:
+            self.character_window.draw(self.screen)
+
+        if self.levelup_window.visible:
+            self.levelup_window.draw(self.screen)
+
     def draw_title(self):
         self.screen.blit(self.title_image, (0, 0))
         pygame.draw.rect(self.screen, PURPLE, self.start_button)
@@ -454,43 +472,7 @@ class GameManager:
 
         if self.show_inventory:
             self.inventory_window.draw(self.screen)
-        
-        
-        
-        
-        #if hasattr(self, 'player_sprite_sheet1') and self.player_sprite_sheet1:
-        #    frame_width = 124
-        #    frame_height = 140 + 28
-        #
-        #    frame_x = 5.9 * 54 - 21   # adjust these
-        #    frame_y = 7 * 80 - 125 # adjust these
 
-        #    frame_rect = pygame.Rect(frame_x, frame_y, frame_width * 3, frame_height * 3)
-        #    player_frame = self.player_sprite_sheet1.subsurface(frame_rect).copy()
-
-        #    target_width = 100
-        #    target_height = 175
-        #    scaled_frame = pygame.transform.scale(player_frame, (target_width, target_height))
-
-            # Check if the frame is empty
-        #    non_transparent_pixels = [
-        #        player_frame.get_at((x, y))
-        #        for x in range(frame_width) for y in range(frame_height)
-        #        if player_frame.get_at((x, y)).a > 0
-        #    ]
-
-        #    if not non_transparent_pixels:
-        #        print(f"[Debug] Frame at ({frame_x}, {frame_y}) is fully transparent!")
-
-        #    offset_x = -200
-        #    offset_y = 80
-            
-        #    player_pos = (SCREEN_WIDTH // 2 - target_width // 2 + offset_x,
-        #                  SCREEN_HEIGHT // 2 - target_height // 2 + offset_y)
-        #    self.screen.blit(scaled_frame, player_pos)
-        #else:
-        #    print("[Warning] Player sprite sheet not loaded yet.")
-        
 
     def draw_creature_select(self):
         self.screen.fill(BLACK)
@@ -1176,7 +1158,6 @@ class GameManager:
 
         #clamp scroll to never scroll beyond real lines
         max_scroll = max(0, total_lines - max_visible_lines)
-        self.combat.log_scroll = max(0, min(self.combat.log_scroll, max_scroll))
 
         if not self.combat.user_is_scrolling:
             self.combat.log_scroll = max_scroll
@@ -1185,13 +1166,16 @@ class GameManager:
             self.combat.log_scroll = max_scroll
             self.combat.force_scroll_to_bottom = False
 
+        self.combat.log_scroll = max(0, min(self.combat.log_scroll, max_scroll))
+
         #determine lines that appear
-        start = max(0, total_lines - max_visible_lines - self.combat.log_scroll)
+        start = self.combat.log_scroll
         end = start + max_visible_lines
 
         visible_lines = wrapped[start:end]
 
         draw_y = y
+        
         for line in visible_lines:
             rendered = font.render(line, True, (255, 255, 255))
             surface.blit(rendered, (x, draw_y))
@@ -1213,3 +1197,7 @@ class GameManager:
             )
 
             pygame.draw.rect(surface, (180, 180, 180), scrollbar_rect)
+
+        self.combat.wrapped_cache = wrapped
+        self.combat.max_visible_lines = max_visible_lines
+        self.combat.max_scroll = max_scroll

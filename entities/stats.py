@@ -1,40 +1,62 @@
 
 class Stats:
-    def __init__(self, hp = 400, mp = 500, strength = 10, dexterity = 5, constitution = 10, intelligence = 5, is_player = False):
-        #self.hp = hp
-        #self.max_hp = hp
-        #self.mp = mp
-        #self.max_mp = mp
-        
+    def __init__(self, hp = 100, mp = 75, strength = 5, dexterity = 5, constitution = 5, intelligence = 5, is_player = False, dodge_chance = 0.0, attack_speed = 1.8, hit_chance = None, min_damage = None, max_damage = None):
+
         self.strength = strength
         self.dexterity = dexterity
         self.constitution = constitution
         self.intelligence = intelligence
 
         if is_player:
-            self.base_hp = 400
-            self.base_mp = 500
+            self.base_hp = 100
+            self.base_mp = 75
+            self.base_hit_chance = hit_chance if hit_chance is not None else 0.85
         else:
             self.base_hp = hp
             self.base_mp = mp
+            self.base_hit_chance = hit_chance if hit_chance is not None else 0.85
         
-        
+        #HP Scaling
         self.hp_per_con = 5
         self.base_hp_regen = 0.02
         self.hp_regen_per_con = 0.01
         self._hp_regen_buffer = 0.0
+        self.hp_regen_multiplier = 1.0
 
-        self.base_mp = 500
+        #MP Scaling
+        self.base_mp = 75
         self.mp_per_int = 5
         self.base_mp_regen = 0.05
         self.mp_regen_per_int = 0.01
+        self._mp_regen_buffer = 0.0
+        self.mp_regen_multiplier = 1.0
+
+        self.armor = 0
+
+        self.base_min_damage = 1
+        self.base_max_damage = 3
+        self.damage_per_str = 0.25
+
+        self.base_crit_chance = 0.05
+        self.crit_per_dex = 0.0001
+
+        self.base_dodge_chance = 0.05
+        self.dodge_per_dex = 0.0001
+
+        self.attack_speed = attack_speed
+        self.hit_chance = self.base_hit_chance
+        #self.min_damage = min_damage if min_damage is not None else strength
+        #self.max_damage = max_damage if max_damage is not None else strength + 2
 
         self.recalc_stats()
 
-        self.crit_chance = 0.05
-        self.dodge_chance = 0.05
-        self.attack_speed = 1.0
-        self.armor = 0
+    @property
+    def crit_chance(self):
+        return self.base_crit_chance + (self.dexterity * self.crit_per_dex)
+    
+    @property
+    def dodge_chance(self):
+        return self.base_dodge_chance + (self.dexterity * self.dodge_per_dex)
         
     def recalc_stats(self):
         self.max_hp = self.base_hp + (self.constitution * self.hp_per_con)
@@ -59,7 +81,13 @@ class Stats:
         return 0.05 + (self.intelligence * 0.01)
     
     def regen_tick(self):
-        regen = self.get_hp_regen
+        if self.hp >= self.max_hp:
+            self._hp_regen_buffer = 0
+            return 0
+
+        regen = self.get_hp_regen()
+
+        regen *= getattr(self, "hp_regen_multiplier", 1.0)
 
         self._hp_regen_buffer += regen
 
@@ -72,3 +100,33 @@ class Stats:
             return heal_amount
         
         return 0
+    
+    def regen_mp_tick(self):
+        if self.mp >= self.max_mp:
+            self._mp_regen_buffer = 0
+            return 0
+        
+        regen = self.get_mp_regen()
+
+        regen *= getattr(self, "mp_regen_multiplier", 1.0)
+
+        self._mp_regen_buffer += regen
+
+        if self._mp_regen_buffer >= 1:
+            restore_amount = int(self._mp_regen_buffer)
+            self._mp_regen_buffer -= restore_amount
+
+            self.mp = min(self.max_mp, self.mp + restore_amount)
+
+            return restore_amount
+        
+        return 0
+    
+    def get_damage_range(self):
+        min_dmg = int(self.base_min_damage + self.strength * self.damage_per_str)
+        max_dmg = int(self.base_max_damage + self.strength * self.damage_per_str)
+        
+        if max_dmg < min_dmg:
+            max_dmg = min_dmg
+        
+        return min_dmg, max_dmg

@@ -5,6 +5,7 @@
         "description": "Heals a small amount of health.",
         "heal_amount": 25,
         "rarity": "common",
+        "icon": "smallhppotion1.png",
         "stackable": true
     },
 
@@ -29,6 +30,7 @@
         "description": "Restores a small amount of mana.",
         "restore_amount": 15,
         "rarity": "common",
+        "icon": "smallmppotion1.png",
         "stackable": true
     },
     "Auto Attack": {

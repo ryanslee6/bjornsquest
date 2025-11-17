@@ -50,11 +50,11 @@ class Fireball(Spell):
         target.stats.hp = max(0, target.stats.hp - dmg)
 
         log_message = f"{caster.name} casts {self.name} for {dmg} damage!"
-        print(log_message)
+        
         if hasattr(combat, "combat_log"):
             combat.add_log(log_message)
 
-        burn_duration = 5.0
+        burn_duration = 5.1
         burn_interval = 1.0
         burn_damage = 10
 
@@ -133,7 +133,7 @@ class Heal(Spell):
         caster.stats.hp = min(caster.stats.hp + heal_amount, caster.stats.max_hp)
         
         log_message = f"{caster.name} casts {self.name} and heals for {heal_amount} HP!"
-        print(log_message)
+        
         if hasattr(combat, "combat_log"):
             combat.add_log(log_message)
         
@@ -191,7 +191,7 @@ class BattleCry(Spell):
         })
 
         log_message = f"{caster.name} uses {self.name}! Strength increased by {self.str_buff} for {int(self.buff_duration)}s."
-        print(log_message)
+        
         if hasattr(combat, "combat_log"):
             combat.add_log(log_message)
 
@@ -230,7 +230,7 @@ class LightningBolt(Spell):
         target.stats.hp = max(0, target.stats.hp - dmg)
 
         log_message = f"{caster.name} casts {self.name} for {dmg} damage and stuns the enemy!"
-        print(log_message)
+        
         if hasattr(combat, "combat_log"):
             combat.add_log(log_message)
 

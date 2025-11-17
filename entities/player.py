@@ -9,11 +9,11 @@ class Player:
         self.stats = Stats()
         self.level = 1
         self.exp = 0
-        #self.exp_to_level = 15
+        self.stat_points = 0
         self.inventory = []
         self.active_effects = []
         self.regen_timer = 0
-        self.gold = 0
+        self.gold = 100
         self.auto_combat_unlocked = False
 
         self.item_manager = item_manager
@@ -26,6 +26,14 @@ class Player:
 
         if self.sprite:
             self.sprite = pygame.transform.scale(self.sprite, (180, 160))
+    
+    def level_up(self):
+        self.level += 1
+        self.stat_points += 5
+
+        self.stats.recalc_stats
+        
+        self.game.show_levelup_window = True
 
     def add_item(self, item_id, quantity = 1):
         #if item_id in self.inventory:
@@ -91,7 +99,17 @@ class Player:
     
     def attack(self, target):
         import random
-        base_damage = self.stats.strength
+
+        is_miss = random.random() > self.stats.hit_chance
+        if is_miss:
+            return 0, True, False, False
+
+        is_dodged = random.random() < target.stats.dodge_chance
+        if is_dodged:
+            return 0, False, False, True
+        
+        min_dmg, max_dmg = self.stats.get_damage_range()
+        base_damage = random.randint(min_dmg, max_dmg)
         
         #crit chance
         is_crit = random.random() < self.stats.crit_chance
@@ -102,26 +120,28 @@ class Player:
         
         target.stats.hp = max(0, target.stats.hp - damage)
         
-        return damage, is_crit
+        return damage, is_miss, is_crit, is_dodged
     
     def gain_exp(self, amount):
         self.exp += amount
         leveled_up = False
+        
         while self.level < len(exp_table) and self.exp >= exp_table[self.level]:
             self.level += 1
             leveled_up = True
 
-            self.stats.strength += 1
-            self.stats.dexterity += 1
-            self.stats.constitution += 1
-            self.stats.intelligence += 1
+            self.stat_points += 5
             
             self.stats.hp = self.stats.max_hp
             self.stats.mp = self.stats.max_mp
 
-            print(f"Leveled up! New level: {self.level}")
-            print(f"Stats increased! STR:{self.stats.strength} DEX:{self.stats.dexterity} CON:{self.stats.constitution} INT:{self.stats.intelligence}")
+            print(f"LEVEL UP! 🎉 Reached Level {self.level}")
+            print(f"Unspent stat points: {self.stat_points}")
             print(f"HP/MP fully restored: {self.stats.hp}/{self.stats.max_hp} HP, {self.stats.mp}/{self.stats.max_mp} MP")
+        
+            if hasattr(self.game, "levelup_window"):
+                self.game.levelup_window.visible = True
+
         if not leveled_up:
             print(f"{self.name} gained {amount} exp!")
 

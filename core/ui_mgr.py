@@ -1,7 +1,7 @@
 import pygame
 from settings import *
 
-spell_slots = {}
+#spell_slots = {}
 
 class InventoryWindow:
     def __init__(self, game):
@@ -47,6 +47,7 @@ class InventoryWindow:
         #    item = self.game.items.get(item_id)
         for entry in self.game.player.inventory:
             item = self.game.items.get(entry["id"])
+
             rect = pygame.Rect(x + 10, y + y_offset, self.width - 20, 28)
             pygame.draw.rect(screen, (60, 60, 60), rect)
             pygame.draw.rect(screen, (120, 120, 120), rect, 1)
@@ -59,9 +60,16 @@ class InventoryWindow:
 
             rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
             
-            text = self.font.render(display_name, True, rarity_color)
-            screen.blit(text, (rect.x + 5, rect.y + 5))
+            if item.icon:
+                icon_surface = pygame.transform.scale(item.icon, (24, 24))
+                screen.blit(icon_surface, (rect.x + 5, rect.y + 2))
+                text_x = rect.x + 34
+            else:
+                text_x = rect.x + 5
             
+            text = self.font.render(display_name, True, rarity_color)
+            screen.blit(text, (text_x, rect.y + 5))
+
             self.item_rects.append((rect, entry))
             y_offset += 32
             
@@ -366,3 +374,145 @@ class SpellbookWindow:
         for i, line in enumerate(lines):
             surf = font.render(line, True, (255, 255, 255))
             surface.blit(surf, (rect.x + padding, rect.y + padding + i * 22))
+
+class CharacterWindow:
+    def __init__(self, game):
+        self.game = game
+        self.visible = False
+
+        self.width = 300
+        self.height = 350
+        
+        self.x = 50
+        self.y = 50
+
+        self.font = pygame.font.Font(None, 26)
+        self.small_font = pygame.font.Font(None, 22)
+
+    def toggle(self):
+        self.visible = not self.visible
+
+    def draw(self, surface):
+        if not self.visible:
+            return
+        
+        pygame.draw.rect(surface, (25, 25, 25), (self.x, self.y, self.width, self.height), border_radius = 8)
+        pygame.draw.rect(surface, (150, 150, 150), (self.x, self.y, self.width, self.height), width = 2, border_radius = 8)
+
+        title = self.font.render("Character Stats", True, (255, 255, 200))
+        surface.blit(title, (self.x + 20, self.y + 15))
+
+        player = self.game.player
+        stats = player.stats
+
+        min_dmg, max_dmg = stats.get_damage_range()
+
+        lines = [
+            f"Damage: {min_dmg} - {max_dmg}",
+            f"STR: {stats.strength}",
+            f"DEX: {stats.dexterity}",
+            f"CON: {stats.constitution}",
+            f"INT: {stats.intelligence}",
+            "",
+            f"Crit: {stats.crit_chance*100:.2f}%",
+            f"Dodge: {stats.dodge_chance*100:.2f}%",
+            f"Armor: {stats.armor}",
+            f"Atk Speed: {stats.attack_speed:.2f}",
+        ]
+
+        y_offset = 55
+        for line in lines:
+            text_surf = self.small_font.render(line, True, (255, 255, 255))
+            surface.blit(text_surf, (self.x + 20, self.y + y_offset))
+            y_offset += 28
+        
+class LevelUpWindow:
+    def __init__(self, game):
+        self.game = game
+        self.visible = False
+
+        self.width = 360
+        self.height = 300
+        self.x = SCREEN_WIDTH // 2 - self.width // 2
+        self.y = SCREEN_HEIGHT // 2 - self.height // 2
+
+        self.font = pygame.font.Font(None, 28)
+        self.small_font = pygame.font.Font(None, 24)
+
+        self.buttons = []
+
+    def open(self):
+        self.visible = True
+
+    def close(self):
+        self.visible = False
+    
+    def draw(self, screen):
+        if not self.visible:
+            return
+
+        panel = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (30, 30, 30, 230), (0, 0, self.width, self.height))
+        pygame.draw.rect(panel, (200, 200, 200), (0, 0, self.width, self.height), 2)
+
+        screen.blit(panel, (self.x, self.y))
+
+        title = self.font.render("Level Up!", True, (255, 255, 255))
+        screen.blit(title, (self.x + 110, self.y + 10))
+
+        p = self.game.player
+
+        pts_text = self.font.render(f"Points: {p.stat_points}", True, (255, 255, 100))
+        screen.blit(pts_text, (self.x + 20, self.y + 50))
+
+        labels = [
+            ("Strength",      "strength"),
+            ("Dexterity",     "dexterity"),
+            ("Constitution",  "constitution"),
+            ("Intelligence",  "intelligence"),
+        ]
+
+        self.buttons.clear()
+        start_y = self.y + 100
+
+        for label, attr in labels:
+            val = getattr(p.stats, attr)
+
+            text = self.small_font.render(f"{label}: {val}", True, (255, 255, 255))
+            screen.blit(text, (self.x + 20, start_y))
+
+            plus_rect = pygame.Rect(self.x + 260, start_y - 5, 30, 30)
+            pygame.draw.rect(screen, (80, 80, 80), plus_rect)
+            pygame.draw.rect(screen, (160, 160, 160), plus_rect, 2)
+
+            plus_text = self.small_font.render("+", True, (255, 255, 255))
+            screen.blit(plus_text, (plus_rect.x + 8, plus_rect.y + 4))
+
+            self.buttons.append((plus_rect, attr))
+
+            start_y += 40
+
+        if p.stat_points == 0:
+            confirm_rect = pygame.Rect(self.x + 90, self.y + 250, 180, 30)
+            pygame.draw.rect(screen, (50, 120, 50), confirm_rect)
+            pygame.draw.rect(screen, (200, 200, 200), confirm_rect, 2)
+            confirm_text = self.small_font.render("Confirm", True, (255, 255, 255))
+            screen.blit(confirm_text, (confirm_rect.x + 50, confirm_rect.y + 5))
+
+            self.buttons.append((confirm_rect, "confirm"))
+
+    def handle_click(self, pos):
+        p = self.game.player
+
+        for rect, action in self.buttons:
+            if rect.collidepoint(pos):
+
+                if action == "confirm":
+                    p.stats.recalc_stats()
+                    self.close()
+                    return
+                
+                if p.stat_points > 0:
+                    setattr(p.stats, action, getattr(p.stats, action) + 1)
+                    p.stat_points -= 1
+                    return
