@@ -5,12 +5,32 @@ class Item:
     def __init__(self, item_id, data, sprite = None):
         self.id = item_id
         self.name = data.get("name", item_id)
+        
+        #Generic item fields
         self.type = data.get("type", "misc")
         self.description = data.get("description", "")
         self.rarity = data.get("rarity", "common")
         self.stackable = data.get("stackable", True)
-        self.sprite = sprite
+        
+        #--Equipment Fields--
+        #Armor
+        self.armor_type = data.get("armor_type", None)
+        self.armor_min = data.get("armor_min", 0)
+        self.armor_max = data.get("armor_max", 0)
 
+        #Weapon
+        self.weapon_type = data.get("weapon_type", None)
+        self.min_dmg = data.get("min_dmg", 0)
+        self.max_dmg = data.get("max_dmg", 0)
+        self.hands = data.get("hands", 1)
+        self.attack_speed = data.get("attack_speed", 1.8)
+
+        #other equipment fields
+        self.required_level = data.get("required_level", 1)
+        self.enhancement_slots = data.get("enhancement_slots", 0)
+        
+        #Sprite / Icon handling        
+        self.sprite = sprite
         if sprite:
             path = os.path.join("assets", "images", sprite)
             self.icon = pygame.image.load(path).convert._alpha()

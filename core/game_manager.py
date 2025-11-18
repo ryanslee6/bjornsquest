@@ -148,12 +148,38 @@ class GameManager:
             if event.key == pygame.K_c:
                 self.character_window.toggle()
 
+        if self.character_window.visible and event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                if self.character_window.handle_click(event.pos):
+                    return
+
         if self.levelup_window.visible and event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
                 self.levelup_window.handle_click(event.pos)
             return
-        #combat log mouse wheel scrolling
-        if event.type == pygame.MOUSEBUTTONDOWN:
+        
+        if self.state == "vendor" and event.type == pygame.MOUSEBUTTONDOWN:
+            #mouse wheel scrolling                
+            if event.button == 4: #wheel up
+                self.vendor_window.scroll_offset = max(0, self.vendor_window.scroll_offset - self.vendor_window.scroll_speed)
+                return
+                        
+            elif event.button == 5: #wheel down
+                self.vendor_window.scroll_offset = min(self.vendor_window.max_scroll, self.vendor_window.scroll_offset + self.vendor_window. scroll_speed)
+                return
+                
+            #implement vendor screen clicks
+            if event.button == 1:
+                if self.vendor_window.handle_click(event.pos):
+                    return
+                    
+                if self.vendor_window and self.vendor_window.is_click_outside(event.pos):
+                    print("[UI] Exiting vendor screen")
+                    self.state = "home"
+                    return
+
+        #combat log mouse wheel scrolling     
+        if self.state == "combat" and event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 4: #scroll up             
                 self.combat.log_scroll = max(self.combat.log_scroll - 1, 0)
 
@@ -291,16 +317,7 @@ class GameManager:
                                 return
 
 
-            elif self.state == "vendor":
-                #implement vendor screen clicks
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.vendor_window.handle_click(event.pos):
-                        return
-                    
-                    if self.vendor_window and self.vendor_window.is_click_outside(event.pos):
-                        print("[UI] Exiting vendor screen")
-                        self.state = "home"
-                        return
+
 
 
             if self.spellbook_window.visible:
@@ -429,10 +446,17 @@ class GameManager:
     def draw(self):
         if self.state == "title":
             self.draw_title()
-        elif self.state in ("home", "vendor"):
+        
+        elif self.state == "home":
             self.draw_home()
+        
+        elif self.state == "vendor":
+            self.draw_home()
+            self.vendor_window.draw(self.screen)
+        
         elif self.state == "creature_select":
             self.draw_creature_select()
+        
         elif self.state == "combat":
             self.draw_combat_screen()
 

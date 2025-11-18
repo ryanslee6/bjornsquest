@@ -23,3 +23,16 @@ RARITY_COLORS = {
     "epic": (180, 80, 255),
     "legendary": (255, 170, 60)
 }
+
+EQUIP_SLOTS = {
+    "Helmet": "head",
+    "Necklace": "neck",
+    "Cape": "back",
+    "Chest Armor": "chest",
+    "Leg Armor": "legs",
+    "Boots": "feet",
+    "Shield": "offhand",
+    "Ring": "ring1"
+}
+
+WEAPON_SLOT = "weapon"

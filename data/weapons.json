@@ -1,0 +1,30 @@
+{
+    "basic_training_axe": {
+        "name": "Basic Training Axe",
+        "type": "Weapon",
+        "weapon_type": "Axe",
+        "hands": 2,
+        "min_dmg": 3,
+        "max_dmg": 6,
+        "attack_speed": 2.6,
+        "description": "A 2 handed axe used by beginners during training",
+        "rarity": "common",
+        "enhancement_slots": 1,
+        "required_level": 1,
+        "stackable": false
+    },
+    "basic_training_sword": {
+        "name": "Basic Training Sword",
+        "type": "Weapon",
+        "weapon_type": "Sword",
+        "hands": 1,
+        "min_dmg": 2,
+        "max_dmg": 4,
+        "attack_speed": 1.9,
+        "description": "A basic sword used by beginners during training",
+        "rarity": "common",
+        "enhancement_slots": 1,
+        "required_level": 1,
+        "stackable": false
+    }
+}

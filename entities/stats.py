@@ -43,6 +43,7 @@ class Stats:
         self.base_dodge_chance = 0.05
         self.dodge_per_dex = 0.0001
 
+        self.base_attack_speed = attack_speed
         self.attack_speed = attack_speed
         self.hit_chance = self.base_hit_chance
         #self.min_damage = min_damage if min_damage is not None else strength
@@ -123,10 +124,34 @@ class Stats:
         return 0
     
     def get_damage_range(self):
-        min_dmg = int(self.base_min_damage + self.strength * self.damage_per_str)
-        max_dmg = int(self.base_max_damage + self.strength * self.damage_per_str)
+        #If weapon has set custom min/max damage, use those
+        if hasattr(self, "min_damage") and hasattr(self, "max_damage"):
+            min_dmg = int(self.min_damage + self.strength * self.damage_per_str)
+            max_dmg = int(self.max_damage + self.strength * self.damage_per_str)
+        else:
+            #fallback: base unarmed damage
+            min_dmg = int(self.base_min_damage + self.strength * self.damage_per_str)
+            max_dmg = int(self.base_max_damage + self.strength * self.damage_per_str)
         
         if max_dmg < min_dmg:
             max_dmg = min_dmg
         
         return min_dmg, max_dmg
+    
+    def reset_to_base(self):
+        #reset all combat relevant stats to base values before gear is applied
+
+        #armor
+        self.armor = 0
+
+        #damage range (weapon bonuses will overwrite these)
+        self.min_damage = self.base_min_damage
+        self.max_damage = self.base_max_damage
+
+        #regen modifiers (base regen is handled in recalc_stats)
+        self.hp_regen_multiplier = 1.0
+        self.mp_regen_multiplier = 1.0
+
+        #hit chance
+        self.hit_chance = self.base_hit_chance
+        self.attack_speed = self.base_attack_speed

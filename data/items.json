@@ -1,4 +1,19 @@
 {
+    "Auto Attack": {
+        "name": "Auto Attack",
+        "type": "account unlock",
+        "rarity": "epic",
+        "description": "Unlocks automatic combat mode.",
+        "stackable": false
+    },
+    
+    "gold_coins": {
+        "name": "Gold Coins",
+        "type": "currency",
+        "description": "Shiny coins earned from your travels.",
+        "stackable": true
+    },
+    
     "health_potion_small": {
         "name": "Small Health Potion",
         "type": "consumable",
@@ -9,21 +24,6 @@
         "stackable": true
     },
 
-    "gold_coins": {
-        "name": "Gold Coins",
-        "type": "currency",
-        "description": "Shiny coins earned from your travels.",
-        "stackable": true
-    },
-
-    "goblin_chain_mail": {
-        "name": "Goblin Chain Mail",
-        "type": "Chest Armor",
-        "defense": 3,
-        "description": "A crude piece of goblin armor",
-        "rarity": "uncommon",
-        "stackable": false
-    },
     "mana_potion_small": {
         "name": "Small Mana Potion",
         "type": "consumable",
@@ -32,13 +32,6 @@
         "rarity": "common",
         "icon": "smallmppotion1.png",
         "stackable": true
-    },
-    "Auto Attack": {
-        "name": "Auto Attack",
-        "type": "account unlock",
-        "rarity": "epic",
-        "description": "Unlocks automatic combat mode.",
-        "stackable": false
     }
 
 }

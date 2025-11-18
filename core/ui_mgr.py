@@ -143,22 +143,45 @@ class InventoryWindow:
             ry += surf.get_height()
 
     def click(self, pos, button):
-        #right click uses item if consumable
-        if button == 3:
-            offset_x = SCREEN_WIDTH // 2 - self.width // 2 + 150
-            offset_y = SCREEN_HEIGHT //2 - self.height // 2
+        offset_x = SCREEN_WIDTH // 2 - self.width // 2 + 150
+        offset_y = SCREEN_HEIGHT //2 - self.height // 2
 
-            for rect, entry in self.item_rects:
-                adjusted_rect = rect.move(offset_x, offset_y)
+        for rect, entry in self.item_rects:
+            adjusted_rect = rect.move(offset_x, offset_y)
                 
-                if adjusted_rect.collidepoint(pos):
-                    item_id = entry["id"]
-                    item = self.game.items.get(item_id)
-                    
+            if adjusted_rect.collidepoint(pos):
+                item_id = entry["id"]
+                item = self.game.items.get(item_id)
+
+                # ----------------------------------------------
+                # RIGHT-CLICK → Equip OR Use
+                # ----------------------------------------------
+                if button == 3:
+
+                    #consumable use
                     if item.type == "consumable":
                         self.game.player.use_item(item_id, self.game.items)
                         print(f"[ITEM] Used {item.name}")
                         return True
+                    
+                    #equipment equipping
+                    if item.type in ("Armor", "Weapon"):
+                        equipped = self.game.player.equip_item(item)
+
+                        if equipped:
+                            print(f"[EQUIP] Equipped {item.name}")
+
+                            #inventory has changed → rebuild the cache
+                            self.render_cache = None
+                            self.cached_inventory = None
+                            return True
+                # ----------------------------------------------
+                # LEFT-CLICK → nothing for now (keeps UI open)
+                # ----------------------------------------------
+                if button == 1:
+                    return True  # prevents closing inventory
+
+                    
         return False
 
 
@@ -178,15 +201,29 @@ class VendorWindow:
         self.text_color = (255, 255, 255)
         self.font = pygame.font.Font(None, 24)
         self.item_rects = []
+        self.scroll_offset = 0
+        self.max_scroll = 0
+        self.scroll_speed = 20
+        self.x = SCREEN_WIDTH // 2 - self.width // 2
+        self.y = SCREEN_HEIGHT // 2 - self.height // 2
 
         self.items_for_sale = [
             {"id": "health_potion_small", "price": 10},
             {"id": "mana_potion_small", "price": 12},
             #{"id": "vial_of_water", "price": 5},
-            {"id": "Auto Attack", "price": 5}
+            {"id": "Auto Attack", "price": 5},
+
+            # ----- Training Equipment -----
+            {"id": "basic_training_helmet", "price": 1},
+            {"id": "basic_training_shirt", "price": 1},
+            {"id": "basic_training_pants", "price": 1},
+            {"id": "basic_training_boots", "price": 1},
+            {"id": "basic_training_shield", "price": 1},
+            {"id": "basic_training_axe", "price": 1},
+            {"id": "basic_training_sword", "price": 1}
         ]
 
-        self.panel_surface = pygame.Surface((self.width, self.height))
+        self.panel_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         pygame.draw.rect(self.panel_surface, self.bg_color, (0, 0, self.width, self.height))
         pygame.draw.rect(self.panel_surface, self.border_color, (0, 0, self.width, self.height), 2)
 
@@ -222,30 +259,70 @@ class VendorWindow:
         return entry
 
     def draw(self, screen):
-        x = SCREEN_WIDTH // 2 - self.width // 2
-        y = SCREEN_HEIGHT // 2 - self.height // 2
+        #self.x = SCREEN_WIDTH // 2 - self.width // 2
+        #self.y = SCREEN_HEIGHT // 2 - self.height // 2
 
-        screen.blit(self.panel_surface, (x, y))
+        # Rebuild panel surface if size changed
+        if self.panel_surface.get_width() != self.width or self.panel_surface.get_height() != self.height:
+            self.panel_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            pygame.draw.rect(self.panel_surface, self.bg_color, (0, 0, self.width, self.height))
+            pygame.draw.rect(self.panel_surface, self.border_color, (0, 0, self.width, self.height), 2)
+
+
+        content_area = pygame.Rect(self.x, self.y, self.width, self.height)
+        screen.set_clip(content_area)
+
+        screen.blit(self.panel_surface, (self.x, self.y))
 
         title = self.font.render("Vendor", True, self.text_color)
-        screen.blit(title, (x + 10, y + 10))
+        screen.blit(title, (self.x + 10, self.y + 10))
 
 
         total_gold = self.game.player.get_total_gold()
         gold_text = self.font.render(f"Gold: {total_gold}", True, (255, 220, 100))
-        screen.blit(gold_text, (x + self.width - 140, y+ 10))
+        screen.blit(gold_text, (self.x + self.width - 140, self.y+ 10))
 
-        y_offset = 50
+        entry_height = 38
         self.item_rects.clear()
-        
+
+        visible_top = 50
+        visible_bottom = self.height - 40
+
+        #panel_top = self.y + 40
+        #panel_bottom = self.y + self.height - 40
+
+        y_offset = visible_top - self.scroll_offset
+
+        total_height = len(self.items_for_sale) * entry_height
+                
         for entry in self.items_for_sale:
             item_id = entry["id"]
             price = entry["price"]
 
             cached = self._ensure_item_cached(item_id, price)
             
+            item_top = y_offset
+            item_bottom = y_offset + entry_height
+
+            #skip items above the window
+            if item_bottom < visible_top:
+                y_offset += entry_height
+                continue
+
+            #stop drawing if below window
+            if item_top > visible_bottom:
+                break
+
+            #draw visible entry
+            ITEM_RIGHT_PADDING = 32
+            rect = pygame.Rect(
+                self.x + 10,
+                self.y + y_offset,
+                self.width - ITEM_RIGHT_PADDING,
+                entry_height - 8
+            )
             
-            rect = pygame.Rect(x + 10, y + y_offset, self.width - 20, 30)
+            #rect = pygame.Rect(x + 10, y + y_offset, self.width - 20, 30)
             pygame.draw.rect(screen, (60, 60, 60), rect)
             pygame.draw.rect(screen, (100, 100, 100), rect, 1)
 
@@ -261,7 +338,10 @@ class VendorWindow:
             screen.blit(cached["price_surface"], (price_x, rect.y + 5))
 
             self.item_rects.append((rect, cached))
-            y_offset += 38
+            
+            y_offset += entry_height
+
+        self.max_scroll = max(0, total_height - (visible_bottom - visible_top))
 
         mouse_pos = pygame.mouse.get_pos()
 
@@ -274,7 +354,33 @@ class VendorWindow:
 
         # Close text
         close_text = self.font.render("Click outside to close", True, (160, 160, 160))
-        screen.blit(close_text, (x + 10, y + self.height - 25))
+        screen.blit(close_text, (self.x + 10, self.y + self.height - 25))
+
+        if self.max_scroll > 0:
+            #scrollbar track area (inside the panel)
+            track_x = self.x + self.width - 14
+            track_y = self.y + 40
+            track_height = self.height - 80
+            track_rect = pygame.Rect(track_x, track_y, 8, track_height)
+
+            pygame.draw.rect(screen, (50, 50, 50), track_rect)
+
+            #thumb size based on visible portion
+            visible_height = self.height - 60
+            thumb_height = max(20, int((visible_height / total_height) * track_height))
+
+            #thumb position based on scroll offset
+            if self.max_scroll > 0:
+                scroll_ratio = self.scroll_offset / self.max_scroll
+            else:
+                scroll_ratio = 0
+
+            thumb_y = track_y + int(scroll_ratio * (track_height - thumb_height))
+            thumb_rect = pygame.Rect(track_x, thumb_y, 8, thumb_height)
+
+            pygame.draw.rect(screen, (160, 160, 160), thumb_rect)
+
+        screen.set_clip(None)
 
     def draw_tooltip(self, screen, item, mouse_pos):
         if not hasattr(item, "tooltip_surfaces"):
@@ -465,13 +571,15 @@ class CharacterWindow:
         self.visible = False
 
         self.width = 300
-        self.height = 350
+        self.height = 665
         
         self.x = 50
         self.y = 50
 
         self.font = pygame.font.Font(None, 26)
         self.small_font = pygame.font.Font(None, 22)
+
+        self.equip_rects = {} # slot_name → rect
 
     def toggle(self):
         self.visible = not self.visible
@@ -509,6 +617,127 @@ class CharacterWindow:
             text_surf = self.small_font.render(line, True, (255, 255, 255))
             surface.blit(text_surf, (self.x + 20, self.y + y_offset))
             y_offset += 28
+
+        # ------------------------------
+        # Equipped Gear Header
+        # ------------------------------
+        y_offset += 10
+        eq_header = self.small_font.render("Equipped Gear:", True, (255, 255, 200))
+        surface.blit(eq_header, (self.x + 20, self.y + y_offset))
+        y_offset += 30
+
+        self.equip_rects.clear()
+
+        slot_labels = {
+            "head": "Helmet",
+            "neck": "Necklace",
+            "back": "Cape",
+            "chest": "Chest",
+            "legs": "Legs",
+            "feet": "Boots",
+            "weapon": "Weapon",
+            "offhand": "Offhand",
+            "ring1": "Ring 1",
+            "ring2": "Ring 2"
+        }
+
+        #player = self.game.player
+        items = player.equipment
+
+        for slot, label in slot_labels.items():
+            item = items.get(slot)
+
+            #slot label
+            slot_text = self.small_font.render(f"{label}:", True, (200, 200, 200))
+            surface.blit(slot_text, (self.x + 20, self.y + y_offset))
+
+            local_x = 126
+            local_y = y_offset - 4
+
+            #clickable background box
+            box_rect = pygame.Rect(self.x + local_x, self.y + local_y, 165, 24)
+            pygame.draw.rect(surface, (45, 45, 45), box_rect)
+            pygame.draw.rect(surface, (90, 90, 90), box_rect, 1)
+
+            self.equip_rects[slot] = pygame.Rect(local_x, local_y, 165, 24)
+
+            #item or "None"
+            if item:
+                rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
+                item_text = self.small_font.render(item.name, True, rarity_color)
+                surface.blit(item_text, (self.x + 130, self.y + y_offset))
+
+                rect = pygame.Rect(local_x, local_y, item_text.get_width(), item_text.get_height())
+                self.equip_rects[slot] = rect
+            else:
+                none_text = self.small_font.render("None", True, (120, 120, 120))
+                surface.blit(none_text, (self.x + 130, self.y + y_offset))
+
+            y_offset += 28
+
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+
+        for slot, rect in self.equip_rects.items():
+            #convert rect into absolute screen space
+            abs_rect = rect.move(self.x, self.y)
+
+            if abs_rect.collidepoint((mouse_x, mouse_y)):
+                item = self.game.player.equipment.get(slot)
+                if item:
+                    self.draw_equipped_tooltip(surface, item, (mouse_x, mouse_y))
+                    break
+
+    def draw_equipped_tooltip(self, surface, item, mouse_pos):
+        if not hasattr(item, "tooltip_surfaces"):
+            return
+
+        padding = 6
+        x, y = mouse_pos
+        x += 16
+        y += 16
+
+        width = item.tooltip_width + padding * 2
+        height = item.tooltip_height + padding * 2
+
+        #screen boundary checks
+        if x + width > SCREEN_WIDTH:
+            x = SCREEN_WIDTH - width - 5
+        if y + height > SCREEN_HEIGHT:
+            y = SCREEN_HEIGHT - height - 5
+
+        #Background
+        pygame.draw.rect(surface, (20, 20, 20), (x, y, width, height))
+        pygame.draw.rect(surface, (180, 180, 180), (x, y, width, height), 1)
+
+        #Name
+        rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
+        name_surf = self.small_font.render(item.name, True, rarity_color)
+        surface.blit(name_surf, (x + padding, y + padding))
+
+        #other tooltip lines
+        yy = y + padding + name_surf.get_height()
+        for surf in item.tooltip_surfaces[1:]:
+            surface.blit(surf, (x + padding, yy))
+            yy += surf.get_height()
+
+
+    def handle_click(self, pos):
+        mouse_x, mouse_y = pos
+
+        for slot, rect in self.equip_rects.items():
+            # Convert local rect → absolute screen rect
+            abs_rect = rect.move(self.x, self.y)
+
+            if abs_rect.collidepoint(mouse_x, mouse_y):
+                item = self.game.player.equipment.get(slot)
+                if item:
+                    print(f"[UNEQUIP] {item.name} removed from {slot}.")
+                    self.game.player.unequip_slot(slot)
+
+                    #refresh ui
+                    self.equip_rects = {}
+                    return True
+        return False                  
         
 class LevelUpWindow:
     def __init__(self, game):

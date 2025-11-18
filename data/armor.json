@@ -1,0 +1,74 @@
+{
+    "basic_training_helmet": {
+        "name": "Basic Training Helmet",
+        "type": "Armor",
+        "armor_type": "Helmet",
+        "armor_min": 1,
+        "armor_max": 1,
+        "description": "A basic helmet used by beginners during training",
+        "rarity": "common",
+        "enhancement_slots": 1,
+        "required_level": 1,
+        "stackable": false
+    },
+    "basic_training_shirt": {
+        "name": "Basic Training Shirt",
+        "type": "Armor",
+        "armor_type": "Chest Armor",
+        "armor_min": 1,
+        "armor_max": 1,
+        "description": "A basic protective shirt used by beginners during training",
+        "rarity": "common",
+        "enhancement_slots": 1,
+        "required_level": 1,
+        "stackable": false
+    },
+    "basic_training_pants": {
+        "name": "Basic Training Pants",
+        "type": "Armor",
+        "armor_type": "Leg Armor",
+        "armor_min": 1,
+        "armor_max": 1,
+        "description": "Basic protective pants used by beginners during training",
+        "rarity": "common",
+        "enhancement_slots": 1,
+        "required_level": 1,
+        "stackable": false
+    },
+    "basic_training_boots": {
+        "name": "Basic Training Boots",
+        "type": "Armor",
+        "armor_type": "Boots",
+        "armor_min": 1,
+        "armor_max": 1,
+        "description": "Basic protective boots used by beginners during training",
+        "rarity": "common",
+        "enhancement_slots": 1,
+        "required_level": 1,
+        "stackable": false
+    },
+    "basic_training_shield": {
+        "name": "Basic Training Shield",
+        "type": "Armor",
+        "armor_type": "Shield",
+        "armor_min": 5,
+        "armor_max": 5,
+        "description": "Basic shield used by beginners during training",
+        "rarity": "common",
+        "enhancement_slots": 1,
+        "required_level": 1,
+        "stackable": false
+    },
+    "goblin_chain_mail": {
+        "name": "Goblin Chain Mail",
+        "type": "Armor",
+        "armor_type": "Chest Armor",
+        "armor_min": 3,
+        "armor_max": 6,
+        "description": "A crude piece of goblin armor",
+        "rarity": "uncommon",
+        "enhancement_slots": 2,
+        "required_level": 5,
+        "stackable": false
+    }
+}
