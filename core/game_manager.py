@@ -129,200 +129,270 @@ class GameManager:
             return surface
 
     def handle_event(self, event):
-        #if event.type == pygame.MOUSEBUTTONDOWN:
-        #    print("[CLICK EVENT]", event.pos, event.button)
+        # --- GLOBAL MODAL WINDOWS / OVERLAYS FIRST ---
         
+        # Inventorw window captures all mouse input when open
         if self.show_inventory and event.type == pygame.MOUSEBUTTONDOWN:
-               # Right-click uses item
-            if event.button == 3 and self.inventory_window.click(event.pos, event.button):
+            if self._handle_inventory_events(event):
                 return
-
-             # Left-click outside closes inventory
-            if event.button == 1 and self.inventory_window.click_outside(event.pos):
-                self.show_inventory = False
-                return
-
-            # ✅ Left-click inside inventory does nothing (prevents closing)
-            return 
+            
+        #keyboard shortcuts
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_c:
                 self.character_window.toggle()
 
+        #character window click handling
         if self.character_window.visible and event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                if self.character_window.handle_click(event.pos):
-                    return
-
+            if self._handle_character_window_events(event):
+                return
+            
+        #Level up window click handling
         if self.levelup_window.visible and event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                self.levelup_window.handle_click(event.pos)
-            return
+            if self._handle_levelup_events(event):
+                return
+            
+        #State specific handling
+
+        if self.state == "vendor":
+            if self._handle_vendor_events(event):
+                return
+            
+        elif self.state == "combat":
+            if self._handle_combat_events(event):
+                return
+            
+        elif self.state == "title":
+            if self._handle_title_events(event):
+                return
         
-        if self.state == "vendor" and event.type == pygame.MOUSEBUTTONDOWN:
-            #mouse wheel scrolling                
-            if event.button == 4: #wheel up
-                self.vendor_window.scroll_offset = max(0, self.vendor_window.scroll_offset - self.vendor_window.scroll_speed)
+        elif self.state == "home":
+            if self._handle_home_events(event):
                 return
-                        
-            elif event.button == 5: #wheel down
-                self.vendor_window.scroll_offset = min(self.vendor_window.max_scroll, self.vendor_window.scroll_offset + self.vendor_window. scroll_speed)
+            
+        elif self.state == "creature_select":
+            if self._handle_creature_select_events(event):
                 return
-                
-            #implement vendor screen clicks
+            
+        #spellbook window (global overlay)
+
+        if self.spellbook_window.visible and event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:
-                if self.vendor_window.handle_click(event.pos):
-                    return
-                    
-                if self.vendor_window and self.vendor_window.is_click_outside(event.pos):
-                    print("[UI] Exiting vendor screen")
-                    self.state = "home"
-                    return
-
-        #combat log mouse wheel scrolling     
-        if self.state == "combat" and event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 4: #scroll up             
-                self.combat.log_scroll = max(self.combat.log_scroll - 1, 0)
-
-                #if not at the bottom, enter manual scroll mode
-                self.combat.user_is_scrolling = (self.combat.log_scroll < self.combat.max_scroll)
-            
-            elif event.button == 5: #scroll down
-                total_lines = len(self.combat.wrapped_cache)
-                max_visible = self.combat.max_visible_lines
-                self.combat.max_scroll = max(0, total_lines - max_visible)
-
-                self.combat.log_scroll = min(self.combat.log_scroll + 1, self.combat.max_scroll)
-
-                if self.combat.log_scroll >= self.combat.max_scroll:
-                    self.combat.user_is_scrolling = False
-                else:
-                    self.combat.user_is_scrolling = True
-
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.state == "title":
-                if self.start_button.collidepoint(event.pos):
-                    print("New Game Clicked")
-                    self.state = "home"
-                elif self.load_button.collidepoint(event.pos):
-                    print("Load Game Clicked")
-                    #implement load logic here
-                    self.state = "home"
-            
-            elif self.state == "home":
-                for text, rect in self.buttons.items():
-                    if rect.collidepoint(event.pos):
-                        
-                        if text == "Fight":
-                            self.state = "creature_select"
-                            return
-                    
-                        elif text == "Inventory":
-                            self.show_inventory = not self.show_inventory
-
-                            if self.show_inventory:
-                                self.inventory_window.render_cache = None
-                                self.inventory_window.cached_inventory = None
-                            print("[UI] Toggling Inventory Window")
-                            return
-                        
-                        elif text == "Shop":
-                            self.state = "vendor"
-                            print("[UI] Entering vendor screen")
-                            return
-
-            
-
-            elif self.state == "creature_select":
-                if hasattr(self, "return_button") and self.return_button.collidepoint(event.pos):
-                    print("[UI] Returning to Camp.")
-                    self.state = "home"
-                    return
-                
-                for name, rect in self.creature_buttons.items():
-                    if rect.collidepoint(event.pos):
-                        print(f"{name} selected!")
-
-                        if self.state == "creature_select":
-                            if name == "Goblin":
-                                self.current_monster = Monster("Goblin")
-                            elif name == "Skeleton":
-                                self.current_monster = Monster("Skeleton")
-                            elif name == "Wolf":
-                                self.current_monster = Monster("Wolf")
-                            else:
-                                self.current_monster = Monster(name = name, level = 1)
-
-                            self.combat = CombatManager(self.player, self.current_monster, self.loot_system, self)
-                            self.state= "combat"
-
-                            print("✅ Combat Started!")
-                        else:
-                            print("⚠️ Combat already active, ignoring click.")
-
-                        break
-            
-            elif self.state == "combat":
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    for label, rect in self.combat_buttons.items():
-                        if rect.collidepoint(event.pos):
-                            if label == "Attack":
-                                self.combat.player_initiated = True
-                                #print("Combat started!")
-                                return
-                            elif label == "Auto":
-                                if not self.player.auto_combat_unlocked:
-                                    print("Auto-Combat isn't unlocked yet!")
-                                    #add popup/tooltip instead of console output
-                                    return
-                                self.auto_combat_enabled = not self.auto_combat_enabled
-                                print(f"Auto-Combat is now {'ON' if self.auto_combat_enabled else 'OFF'}")
-                                
-                                if self.auto_combat_enabled and not self.combat.player_initiated:
-                                    self.combat.player_initiated = True
-                                
-                                return
-                            elif label == "Spells":
-                                self.show_spell_bar = not self.show_spell_bar
-                            elif label == "Use Item":
-                                pass
-                            elif label == "Inventory":
-                                self.show_inventory = not self.show_inventory
-                                return
-                            elif label == "Home":
-                                self.state = "home"
-                                print("[UI] Returning to home screen")
-
-
-                    if getattr(self, "show_spell_bar", False):
-                        for label, rect in self.spell_buttons.items():
-                            if rect.collidepoint(event.pos):
-                                
-                                if label == "Spellbook":
-                                    self.spellbook_window.toggle()
-                                    return
-                                
-                                if label.startswith("Slot"):
-                                    slot_index = int(label.split(" ")[1])
-                                    self.selected_spell_slot = slot_index
-                                                                                                   
-                                    if self.spellbook_window.visible:
-                                        self.spellbook_window.selected_slot = slot_index
-                                        print(f"[UI] Selected slot {slot_index} for assignment")
-                                    else:
-                                        spell = self.spell_slots.get(slot_index)
-                                        if spell:
-                                            #print(f"[CAST DEBUG] Casting {spell.name} id={id(spell)} from slot {slot_index}")
-                                            self.combat.cast_spell(spell.name)
-
-                                return
-
-
-
-
-
-            if self.spellbook_window.visible:
                 if self.spellbook_window.handle_click(event.pos):
                     return
+
+    def _handle_inventory_events(self, event):
+        #right click uses item
+        if event.button == 3 and self.inventory_window.click(event.pos, event.button):
+            return True
+        
+        #left click outside closes inventory
+        if event.button == 1 and self.inventory_window.click_outside(event.pos):
+            self.show_inventory = False
+            return True
+        
+        #left click inside does nothing, but still consume the event
+        return True
+
+    def _handle_character_window_events(self, event):
+        if event.button == 1:
+            if self.character_window.handle_click(event.pos):
+                return True
+        return False
+    
+    def _handle_levelup_events(self, event):
+        if event.button == 1:
+            self.levelup_window.handle_click(event.pos)
+            return True
+        return False
+    
+    def _handle_vendor_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN:
+            return False
+        
+        #mouse wheel scrolling
+        if event.button == 4: #wheel up
+            self.vendor_window.scroll_offset = max(0, self.vendor_window.scroll_offset - self.vendor_window.scroll_speed)
+            return True
+        
+        if event.button == 5: #wheel down
+            self.vendor_window.scroll_offset = min(self.vendor_window.max_scroll, self.vendor_window.scroll_offset + self.vendor_window.scroll_speed)
+            return True
+        
+        #left clicks
+        if event.button == 1:
+            if self.vendor_window.handle_click(event.pos):
+                return True
+            
+            if self.vendor_window and self.vendor_window.is_click_outside(event.pos):
+                print("[UI] Exiting vnedor screen")
+                self.state = "home"
+                return True
+            
+        return False
+    
+    def _handle_combat_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN:
+            return False
+        
+        #combat log mouse wheel scrolling
+        if event.button in (4, 5):
+            self._handle_combat_log_scroll(event.button)
+            return True
+        
+        #left click in combat ui
+        if event.button == 1:
+            if self._handle_combat_click(event.pos):
+                return True
+            
+        return False
+    
+    def _handle_combat_log_scroll(self, button):
+        if button == 4: #scroll up
+            self.combat.log_scroll = max(self.combat.log_scroll - 1, 0)
+            self.combat.user_is_scrolling = (self.combat.log_scroll < self.combat.max_scroll)
+
+        elif button == 5: #scroll down
+            total_lines = len(self.combat.wrapped_cache)
+            max_visible = self.combat.max_visible_lines
+            self.combat.max_scroll = max(0, total_lines - max_visible)
+
+            self.combat.log_scroll = min(self.combat.log_scroll + 1, self.combat.max_scroll)
+
+            if self.combat.log_scroll >= self.combat.max_scroll:
+                self.combat.user_is_scrolling = False
+            else:
+                self.combat.user_is_scrolling = True
+
+    def _handle_combat_click(self, pos):
+        #main combat buttons ("Attack", "Auto", "Spells", "Use Item", "Inventory", "Home")
+        for label, rect in self.combat_buttons.items():
+            if rect.collidepoint(pos):
+                if label == "Attack":
+                    self.combat.player_initiated = True
+                    return True
+                
+                elif label == "Auto":
+                    if not self.player.auto_combat_unlocked:
+                        print("Auto Combat isn't unlocked yet!")
+                        return True
+                    
+                    self.auto_combat_enabled = not self.auto_combat_enabled
+                    print(f"Auto Combat is now {'ON' if self.auto_combat_enabled else 'OFF'}")
+
+                    if self.auto_combat_enabled and not self.combat.player_initiated:
+                        self.combat.player_initiated = True
+
+                    return True
+            
+                elif label == "Spells":
+                    self.show_spell_bar = not self.show_spell_bar
+                    return True
+                
+                elif label == "Use Item":
+                    #nothing yet
+                    return True
+                
+                elif label == "Inventory":
+                    self.show_inventory = not self.show_inventory
+                    return True
+                
+                elif label == "Home":
+                    self.state = "home"
+                    print("[UI] Returning to home screen")
+                    return True
+        
+        #Spellbar clicks
+        if getattr(self, "show_spell_bar", False):
+            for label, rect in self.spell_buttons.items():
+                if rect.collidepoint(pos):
+
+                    if label == "Spellbook":
+                        self.spellbook_window.toggle()
+                        return True
+                    
+                    if label.startswith("Slot"):
+                        slot_index = int(label.split(" ")[1])
+                        self.selected_spell_slot = slot_index
+
+                        if self.spellbook_window.visible:
+                            self.spellbook_window.selected_slot = slot_index
+                            print(f"[UI] Selected slot {slot_index} for assignment")
+                        else:
+                            spell = self.spell_slots.get(slot_index)
+                            if spell:
+                                self.combat.cast_spell(spell.name)
+
+                        return True
+        return False
+    
+    def _handle_title_events(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.start_button.collidepoint(event.pos):
+                print("New Game Clicked")
+                self.state = "home"
+                return True
+            
+            if self.load_button.collidepoint(event.pos):
+                print("Load Game Clicked")
+                #load logic not implemented yet
+                self.state = "home"
+                return True
+        return False
+    
+    def _handle_home_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return False
+        
+        for text, rect in self.buttons.items():
+            if rect.collidepoint(event.pos):
+
+                if text == "Fight":
+                    self.state = "creature_select"
+                    return True
+                
+                elif text == "Inventory":
+                    self.show_inventory = not self.show_inventory
+                    if self.show_inventory:
+                        #reset cache so it rebuilds
+                        self.inventory_window.render_cache = None
+                        self.inventory_window.cached_inventory = None
+                    print("[UI] Toggling Inventory Window")
+                    return True
+                
+                elif text == "Shop":
+                    self.state = "vendor"
+                    print("[UI] Entering vendor screen")
+                    return True
+        return False
+    
+    def _handle_creature_select_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return False
+        
+        #return to camp button
+        if hasattr(self, "return_button") and self.return_button.collidepoint(event.pos):
+            print("[UI] Returning to Camp")
+            self.state = "home"
+            return True
+        
+        #monster selection buttons
+        for name, rect in self.creature_buttons.items():
+            if rect.collidepoint(event.pos):
+                print(f"{name} selected!")
+
+                if name =="Goblin":
+                    self.current_monster = Monster("Goblin")
+                elif name == "Skeleton":
+                    self.current_monster = Monster("Skeleton")
+                elif name == "Wolf":
+                    self.current_monster = Monster(name = name, level = 1)
+
+                self.combat = CombatManager(self.player, self.current_monster, self.loot_system, self)
+                self.state = "combat"
+                print("✅ Combat Started!")
+
+                return True
+        return False
 
     def update(self, dt):
         #self.combat.update_burns(dt) #moved down to bottom with rest of updates

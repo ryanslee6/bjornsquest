@@ -285,7 +285,7 @@ class VendorWindow:
         entry_height = 38
         self.item_rects.clear()
 
-        visible_top = 50
+        visible_top = 60
         visible_bottom = self.height - 40
 
         #panel_top = self.y + 40
@@ -343,15 +343,6 @@ class VendorWindow:
 
         self.max_scroll = max(0, total_height - (visible_bottom - visible_top))
 
-        mouse_pos = pygame.mouse.get_pos()
-
-        for rect, cached in self.item_rects:
-            if rect.collidepoint(mouse_pos):
-                item = cached["item"]
-                if item:
-                    self.draw_tooltip(screen, item, mouse_pos)
-                break
-
         # Close text
         close_text = self.font.render("Click outside to close", True, (160, 160, 160))
         screen.blit(close_text, (self.x + 10, self.y + self.height - 25))
@@ -379,6 +370,16 @@ class VendorWindow:
             thumb_rect = pygame.Rect(track_x, thumb_y, 8, thumb_height)
 
             pygame.draw.rect(screen, (160, 160, 160), thumb_rect)
+
+            mouse_pos = pygame.mouse.get_pos()
+
+            for rect, cached in self.item_rects:
+                if rect.collidepoint(mouse_pos):
+                    item = cached["item"]
+                    if item:
+                        screen.set_clip(None)
+                        self.draw_tooltip(screen, item, mouse_pos)
+                    break
 
         screen.set_clip(None)
 
