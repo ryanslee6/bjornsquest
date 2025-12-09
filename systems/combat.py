@@ -61,27 +61,14 @@ class CombatManager:
 
         current_time = time.time()
         something_happened = False
+
+        self._update_effects(self.player, current_time)
+        self._update_effects(self.current_monster, current_time)
         
         if self.ready_time is not None:
                     if pygame.time.get_ticks() < self.ready_time:
                         return
                     self.ready_time = None
-
-        #if self.monster_defeated:
-        #    if pygame.time.get_ticks() >= self.respawn_time:
-        #        self.current_monster = Monster(self.current_monster.name)
-        #        self.current_monster.stats.hp = self.current_monster.stats.max_hp
-        #        self.current_monster.stats.mp = self.current_monster.stats.max_mp
-                
-        #        self.monster_defeated = False
-        #        self.respawn_time = None
-
-        #        self.ready_time = pygame.time.get_ticks() + self.post_respawn_delay
-
-        #        if self.auto_combat_enabled:
-        #             self.player_initiated = True
-
-        #    return
 
         if not self.player_initiated:
             if hasattr(self, "auto_combat_enabled") and self.auto_combat_enabled:
@@ -96,7 +83,8 @@ class CombatManager:
             else:
                 self.current_monster.is_stunned = False
 
-        if current_time - self.last_player_attack >= self.player.stats.attack_speed:
+        player_eff = self.player.stats.compute_effective_stats(self.player.active_effects)
+        if current_time - self.last_player_attack >= player_eff["attack_speed"]:
             if self.player.is_alive() and self.current_monster.is_alive():
                 dmg, is_miss, is_crit, is_dodged = self.player.attack(self.current_monster)
                 if is_miss:
@@ -132,9 +120,34 @@ class CombatManager:
 
                 self.enemy_hit_flash_timer = pygame.time.get_ticks() + self.enemy_hit_flash_delay
 
-        if current_time - self.last_monster_attack >= self.current_monster.stats.attack_speed:
+        monster_eff = self.current_monster.stats.compute_effective_stats(self.current_monster.active_effects)
+        ability = self.current_monster.choose_ability(self.game)
+        
+        # effects DEBUG
+        print("Monster Effective Stats:",
+            "DMG", monster_eff["min_damage"], "-", monster_eff["max_damage"])#,
+        #    "| AS", monster_eff["attack_speed"],
+        #    "| Armor", monster_eff["armor"],
+        #    "| Effects:", self.current_monster.active_effects)
+        
+
+        if current_time - self.last_monster_attack >= monster_eff["attack_speed"]:
             if self.player.is_alive() and self.current_monster.is_alive():
                 dmg, is_miss, is_crit, is_dodged = self.current_monster.attack(self.player)
+                
+                if ability:
+                    self.add_log(f"{self.current_monster.name} uses {ability}!")
+                    self.current_monster.cast_ability(ability, self.player, self.game)
+                    latest_effect = self.current_monster.active_effects[-1]
+                    display_name = latest_effect["name"]
+            
+                    self.add_floating_text(
+                        display_name,
+                        0, 0,
+                        text_type = "buff",
+                        target = "enemy"
+                    )
+                
                 if is_miss:
                     self.add_log(f"{self.current_monster.name} misses {self.player.name}!")
                     self.add_floating_text("Miss!", 0, 0, text_type="combat", target="player")
@@ -404,7 +417,7 @@ class CombatManager:
         target.active_effects.append({
             "name": "Burn",
             "color": (255, 80, 0),
-            "expires": time.time() + duration,
+            "expires_at": time.time() + duration,
             "duration": duration,
             "start": time.time(),
             "description": f"Burns for {damage} fire damage every {interval}s.",
@@ -567,3 +580,12 @@ class CombatManager:
 
         if not self.user_is_scrolling:
             self.force_scroll_to_bottom = True
+
+    def _update_effects(self, entity, current_time):
+        if not hasattr(entity, "active_effects"):
+            return
+        
+        entity.active_effects = [
+            eff for eff in entity.active_effects
+            if eff["expires_at"] > current_time
+        ]

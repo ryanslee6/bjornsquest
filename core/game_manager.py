@@ -10,9 +10,11 @@ from core.item_mgr import ItemManager
 from core.ui_mgr import SpellbookWindow
 from core.ui_mgr import CharacterWindow
 from core.ui_mgr import LevelUpWindow
+from core.ability_manager import AbilityManager
 import time
 import math
 from pygame import gfxdraw
+import json
 
 
 class GameManager:
@@ -37,6 +39,10 @@ class GameManager:
         self.combat_log_offset = 0
         self.combat_log_at_bottom = True
         self.fps_font = pygame.font.Font(None, 30)
+        self.ability_manager = AbilityManager()
+        ABILITIES_PATH = os.path.join("data", "abilities.json")
+        with open(ABILITIES_PATH, "r") as f:
+            self.ability_data = json.load(f)
         
         def load_icon(name, filename):
             path = os.path.join("assets", "images", filename)
@@ -111,7 +117,16 @@ class GameManager:
 
         self.current_action = None
 
-        self.creature_select_options = ["Goblin", "Skeleton", "Wolf"]
+        self.monster_pages = [
+            {
+                "monsters": ["Goblin", "Bat", "Skeleton", "Wolf"],
+                "boss": "Boss1"
+            },
+            {
+                "monsters": ["Zombie"]
+            }
+        ]
+        self.current_monster_page = 0
 
         self.start_button = pygame.Rect(100, 650, 200, 50)
         self.load_button = pygame.Rect(500, 650, 200, 50)
@@ -369,9 +384,24 @@ class GameManager:
         if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
             return False
         
+        #previous page button
+        if hasattr(self, "prev_page_button") and self.prev_page_button:
+            if self.prev_page_button.collidepoint(event.pos):
+                if self.current_monster_page > 0:
+                    self.current_monster_page -= 1
+                    print(f"[UI] Switched to monster page {self.current_monster_page}")
+                return True
+        
+        #next page button
+        if hasattr(self, "next_page_button") and self.next_page_button:
+            if self.next_page_button.collidepoint(event.pos):
+                if self.current_monster_page < len(self.monster_pages) - 1:
+                    self.current_monster_page += 1
+                    print(f"[UI] Switched to monster page {self.current_monster_page}")
+                return True
+
         #return to camp button
         if hasattr(self, "return_button") and self.return_button.collidepoint(event.pos):
-            print("[UI] Returning to Camp")
             self.state = "home"
             return True
         
@@ -379,17 +409,10 @@ class GameManager:
         for name, rect in self.creature_buttons.items():
             if rect.collidepoint(event.pos):
                 print(f"{name} selected!")
-
-                if name =="Goblin":
-                    self.current_monster = Monster("Goblin")
-                elif name == "Skeleton":
-                    self.current_monster = Monster("Skeleton")
-                elif name == "Wolf":
-                    self.current_monster = Monster(name = name, level = 1)
-
+               
+                self.current_monster = Monster(name)
                 self.combat = CombatManager(self.player, self.current_monster, self.loot_system, self)
                 self.state = "combat"
-                print("✅ Combat Started!")
 
                 return True
         return False
@@ -584,21 +607,94 @@ class GameManager:
         title = self.font.render("Select a Monster", True, WHITE)
         self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
 
-        self.creature_buttons = {}
-        y_start = 150
-        for i, name in enumerate(self.creature_select_options):
-            rect = pygame.Rect(SCREEN_WIDTH // 2 - 75, y_start + i * 70, 150, 50)
-            self.creature_buttons[name] = rect
-            pygame.draw.rect(self.screen, LIGHT_GRAY, rect)
-            label = self.font.render(name, True, WHITE)
-            self.screen.blit(label, (rect.x + rect.width // 2 - label.get_width() // 2,
-                                     rect.y + rect.height // 2 - label.get_height() // 2))
+        page = self.monster_pages[self.current_monster_page]
+        monsters = page["monsters"]
+        boss_name = page.get("boss")
 
-        self.return_button = pygame.Rect(SCREEN_WIDTH // 2 - 100, y_start + len(self.creature_select_options) * 70 + 40, 200, 50)
+        total_pages = len(self.monster_pages)
+        current_page = self.current_monster_page
+
+        btn_w = 180
+        btn_h = 55
+        spacing = 20
+
+        start_x = SCREEN_WIDTH // 2 - (btn_w * 2 + spacing) // 2
+        start_y = 150
+
+        self.creature_buttons = {}
+        
+        for i, name in enumerate(monsters):
+            col = i % 2
+            row = i // 2
+
+            x = start_x + col * (btn_w + spacing)
+            y = start_y + row * (btn_h + spacing)
+
+            rect = pygame.Rect(x, y, btn_w, btn_h)
+            self.creature_buttons[name] = rect
+
+            pygame.draw.rect(self.screen, LIGHT_GRAY, rect)
+            pygame.draw.rect(self.screen, WHITE, rect, 2)
+
+            label = self.font.render(name, True, WHITE)
+            self.screen.blit(label, (rect.x + (btn_w - label.get_width()) // 2,
+                                     rect.y + (btn_h - label.get_height()) // 2))
+            
+        if boss_name:
+            boss_y = start_y + 2 * (btn_h + spacing) + 10
+            boss_rect = pygame.Rect(start_x, boss_y, btn_w * 2 + spacing, btn_h)
+            self.creature_buttons[boss_name] = boss_rect
+
+            pygame.draw.rect(self.screen, (120, 40, 40), boss_rect)
+            pygame.draw.rect(self.screen, (200, 80, 80), boss_rect, 2)
+
+            boss_label = self.font.render(boss_name, True, WHITE)
+            self.screen.blit(boss_label, (boss_rect.x + boss_rect.width // 2 - boss_label.get_width() // 2,
+                                             boss_rect.y + boss_rect.height // 2 - boss_label.get_height() // 2))
+            
+            bottom_y = boss_y + btn_h
+        else:
+            bottom_y = start_y + (2* (btn_h + spacing))
+
+        self.next_page_button = None
+        self.prev_page_button = None
+
+        btn_w_nav = 150
+        btn_h_nav = 60
+
+        center_y = SCREEN_HEIGHT // 2 - btn_h_nav // 2
+
+        #previous page button (if > 0)
+        if current_page > 0:
+            prev_rect = pygame.Rect(30, center_y, btn_w_nav, btn_h_nav)
+            self.prev_page_button = prev_rect
+
+            pygame.draw.rect(self.screen, (50, 80, 150), prev_rect)
+            pygame.draw.rect(self.screen, (100, 140, 200), prev_rect, 2)
+
+            prev_label = self.font_small.render("← Previous", True, WHITE)
+            self.screen.blit(prev_label, (prev_rect.x + (prev_rect.width - prev_label.get_width()) // 2,
+                                          prev_rect.y + (prev_rect.height - prev_label.get_height()) // 2))
+            
+        #next page button (only if < last page)
+        if current_page < total_pages - 1:
+            next_rect = pygame.Rect(SCREEN_WIDTH - btn_w_nav - 30, center_y, btn_w_nav, btn_h_nav)
+            self.next_page_button = next_rect
+
+            pygame.draw.rect(self.screen, (50, 80, 150), next_rect)
+            pygame.draw.rect(self.screen, (100, 140, 200), next_rect , 2)
+
+            next_label = self.font_small.render("Next Page →", True, WHITE)
+            self.screen.blit(next_label, (next_rect. x + (next_rect.width - next_label.get_width()) // 2,
+                                          next_rect.y + (next_rect.height - next_label.get_height()) // 2))
+            
+        self.return_button = pygame.Rect(SCREEN_WIDTH // 2 - 100,
+                                             bottom_y + btn_h + 40,
+                                             200, 50)
         pygame.draw.rect(self.screen, (100, 100, 100), self.return_button)
-        label = self.font.render("Return to Camp", True, WHITE)
-        self.screen.blit(label, (self.return_button.x + self.return_button.width // 2 - label.get_width() // 2,
-                                 self.return_button.y + self.return_button.height // 2 - label.get_height() // 2))
+        ret = self.font.render("Return to Camp", True, WHITE)
+        self.screen.blit(ret, (self.return_button.x + self.return_button.width // 2 - ret.get_width() // 2,
+                                   self.return_button.y + self.return_button.height // 2 - ret.get_height() // 2))
 
     def draw_combat_screen(self):
         self.screen.fill(BLACK)
@@ -1188,15 +1284,57 @@ class GameManager:
     def draw_effect_tooltip(self, effect, mouse_pos):
         name = effect["name"]
         desc = effect.get("description", "")
+        mods = effect.get("mods", {})
 
         now = time.time()
         remaining = max(0, effect["expires"] - now)
 
-        lines = [
-            name,
-            desc,
-            f"Time left: {remaining:.1f}s"
-        ]
+        lines = [name]
+
+        for stat, val in mods.items():
+            
+            if stat == "damage_flat":
+                sign = "+" if val > 0 else ""
+                lines.append(f"{sign}{val} Damage")
+
+            elif stat == "damage_pct":
+                pct = int(val * 100)
+                sign = "+" if pct > 0 else ""
+                lines.append(f"{sign}{pct}% Damage")
+
+            elif stat == "attack_speed_pct":
+                #val is a multipler on attack delay
+                #e.g. -0.15 means attack are 15% faster
+                speed_increase = int(abs(val) * 100)
+
+                #positive buffs shown as green "+15% attack speed"
+                if val < 0:
+                    lines.append(f"+{speed_increase}% Attack Speed")
+
+                #in cases where val is > 0, show as slow-down debuff
+                else:
+                    lines.append(f"-{speed_increase}% Attack Speed")
+
+            elif stat == "armor_flat":
+                sign = "+" if val > 0 else ""
+                lines.append(f"{sign}{val} Armor")
+
+            elif stat == "armor_pct":
+                pct = int(val * 100)
+                sign = "+" if pct > 0 else ""
+                lines.append(f"{sign}{pct}% Armor")
+                
+            elif stat == "crit_chance":
+                pct = int(val * 100)
+                sign = "+" if pct > 0 else ""
+                lines.append(f"{sign}{pct}% Crit Chance")
+
+            elif stat == "dodge_chance":
+                pct = int(val * 100)
+                sign = "+" if pct > 0 else ""
+                lines.append(f"{sign}{pct}% Dodge Chance")
+        
+        lines.append(f"Time left: {remaining:.1f}s")
 
         font = self.font_small
         padding = 8
@@ -1220,7 +1358,13 @@ class GameManager:
         pygame.draw.rect(self.screen, (255, 255, 255), tooltip_rect, 2)
 
         for i, line in enumerate(lines):
-            text_surf = font.render(line, True, (255, 255, 255))
+            color = (255, 255, 255)
+            if "+" in line:
+                color = (120, 255, 120)
+            elif "-" in line:
+                color = (255, 120, 120)
+            
+            text_surf = font.render(line, True, color)
             self.screen.blit(text_surf, (tooltip_rect.x + padding, tooltip_rect.y + padding + i * 18))
 
 

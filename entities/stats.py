@@ -51,6 +51,17 @@ class Stats:
 
         self.recalc_stats()
 
+        #ensure min/max damage exists (fallback to base values)
+        if min_damage is None:
+            self.min_damage = self.base_min_damage
+        else:
+            self.min_damage = min_damage
+
+        if max_damage is None:
+            self.max_damage = self.base_max_damage
+        else:
+            self.max_damage = max_damage
+
     @property
     def crit_chance(self):
         return self.base_crit_chance + (self.dexterity * self.crit_per_dex)
@@ -155,3 +166,43 @@ class Stats:
         #hit chance
         self.hit_chance = self.base_hit_chance
         self.attack_speed = self.base_attack_speed
+
+    def compute_effective_stats(self, effects):
+        eff = {
+            "min_damage": self.min_damage,
+            "max_damage": self.max_damage,
+            "armor": self.armor,
+            "attack_speed": self.attack_speed,
+            "crit_chance": self.crit_chance,
+            "hit_chance": self.hit_chance,
+            "dodge_chance": self.dodge_chance,
+        }
+
+        for eff_data in effects:
+            mods = eff_data.get("mods", {})
+            for stat, val in mods.items():
+                
+                if stat == "damage_flat":
+                    eff["min_damage"] += val
+                    eff["max_damage"] += val
+
+                elif stat == "attack_speed_pct":
+                    eff["attack_speed"] *= (1 + val)
+
+                elif stat == "armor_flat":
+                    eff["armor"] += val
+
+                elif stat == "armor_pct":
+                    eff["armor"] *= (1 + val)
+
+                elif stat == "damage_pct":
+                    eff["min_damage"] *= (1 + val)
+                    eff["max_damage"] *= (1 + val)
+
+                elif stat == "crit_chance":
+                    eff["crit_chance"] *= (1 + val)
+
+                elif stat == "dodge_chance":
+                    eff["dodge_chance"] *= (1 + val)
+
+        return eff

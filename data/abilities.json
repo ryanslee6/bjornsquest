@@ -1,0 +1,42 @@
+{
+    "goblin_fervor": {
+        "name": "Goblin Fervor",
+        "type": "self_buff",
+        "chance": 0.20,
+        "cooldown": 6,
+        "duration": 5,
+        "log_text": "The goblin enters a frenzied battle trance!",
+
+        "tooltip": [
+            "+2 Damage",
+            "+15% Attack Speed",
+            "-2 Armor"
+        ],
+
+        "effects": [
+            { "stat": "damage_flat", "value": 2 },
+            { "stat": "attack_speed_pct", "value": -0.15 },
+            { "stat": "armor_flat", "value": -2 }
+        ]
+    },
+    "wolf_howl": {
+        "name": "Wolf Howl",
+        "type": "self_buff",
+        "chance": 0.20,
+        "cooldown": 8,
+        "duration": 6,
+        "log_text": "The wolf lets out a ferocious howl!",
+
+        "tooltip": [
+            "+10% Damage",
+            "+10% Crit chance",
+            "+5% Dodge"
+        ],
+
+        "effects": [
+            {"stat": "damage_pct", "value": 0.10},
+            {"stat": "crit_pct", "value": 0.10},
+            {"stat": "dodge_pct", "value": 0.05}
+        ]
+    }
+}

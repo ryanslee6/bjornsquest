@@ -225,14 +225,24 @@ class Player:
     def attack(self, target):
         import random
 
+        #miss check
         is_miss = random.random() > self.stats.hit_chance
         if is_miss:
             return 0, True, False, False
 
+        #dodge check
         is_dodged = random.random() < target.stats.dodge_chance
         if is_dodged:
             return 0, False, False, True
-        
+
+        eff = self.stats.compute_effective_stats(self.active_effects)
+        target_eff = target.stats.compute_effective_stats(target.active_effects)
+
+        min_dmg = eff["min_damage"]
+        max_dmg = eff["max_damage"]
+        armor = target_eff["armor"]
+
+        #base damage roll    
         min_dmg, max_dmg = self.stats.get_damage_range()
         base_damage = random.randint(min_dmg, max_dmg)
         
@@ -241,11 +251,20 @@ class Player:
         if is_crit:    
             base_damage *= 2
         
-        damage = max(0, base_damage - target.stats.armor)
+        #armor reduction
+        armor = target.stats.armor
+        if armor > 0:
+            damage_reduction = armor / (armor + 400)
+            final_damage = int(base_damage) * (1 - damage_reduction)
+        else:
+            final_damage = base_damage
+
+        final_damage = max(1, final_damage)
+
+        #apply damage
+        target.stats.hp = max(0, target.stats.hp - final_damage)
         
-        target.stats.hp = max(0, target.stats.hp - damage)
-        
-        return damage, is_miss, is_crit, is_dodged
+        return final_damage, is_miss, is_crit, is_dodged
     
     def gain_exp(self, amount):
         self.exp += amount
