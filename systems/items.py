@@ -64,10 +64,13 @@ class ConsumableItem(Item):
 
         #load icon image for consumables
         self.icon_surface = None
+        self.scaled_icon = None
         if self.icon_name:
             try:
                 path = os.path.join("assets", "images", self.icon_name)
                 self.icon_surface = pygame.image.load(path).convert_alpha()
+                #pre-scale for floating text
+                self.scaled_icon = pygame.transform.scale(self.icon_surface, (20, 20))
             except Exception as e:
                 print(f"[WARNING] Failed to load icon '{self.icon_name}' for item '{self.id}': {e}")
 
@@ -87,9 +90,9 @@ class ConsumableItem(Item):
             
             player.game.combat.spawn_heal_particles(px, py)
 
-            icon_surface = None
-            if hasattr(self, "icon") and self.icon:
-                icon_surface = pygame.transform.scale(self.icon, (20, 20))
+            icon_surface = self.scaled_icon
+            #if hasattr(self, "icon") and self.icon:
+            #    icon_surface = pygame.transform.scale(self.icon, (20, 20))
 
             player.game.combat.add_floating_text(
                 f"+{self.heal_amount} HP",

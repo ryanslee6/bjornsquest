@@ -64,6 +64,14 @@ class CombatManager:
             80: pygame.font.Font(None, 80),
         }
 
+        self.cached_player_eff = None
+        self.cached_monster_eff = None
+        self.player_effects_hash = None
+        self.monster_effects_hash = None
+
+        self.display_surface = pygame.display.get_surface()
+        self.screen_width = self.display_surface.get_width() if self.display_surface else 800
+        self.screen_height = self.display_surface.get_height() if self.display_surface else 700
 
     def update(self, dt):
         if not self.combat_active:
@@ -106,7 +114,12 @@ class CombatManager:
                 #Player is stunned → skip all player attack logic
                 return something_happened
 
-        player_eff = self.player.stats.compute_effective_stats(self.player.active_effects)
+        current_player_hash = len(self.player.active_effects)
+        if current_player_hash != self.player_effects_hash:
+            self.cached_player_eff = self.player.stats.compute_effective_stats(self.player.active_effects)
+            self.player_effects_hash = current_player_hash
+
+        player_eff = self.cached_player_eff
         
         #player attack speed debug
         #print(f"[DEBUG] Player effective AS = {player_eff['attack_speed']:.3f}  (base={self.player.stats.attack_speed:.3f})")
@@ -171,7 +184,12 @@ class CombatManager:
 
                 self.enemy_hit_flash_timer = pygame.time.get_ticks() + self.enemy_hit_flash_delay
 
-        monster_eff = self.current_monster.stats.compute_effective_stats(self.current_monster.active_effects)
+        current_monster_hash = len(self.current_monster.active_effects)
+        if current_monster_hash != self.monster_effects_hash:
+            self.cached_monster_eff = self.current_monster.stats.compute_effective_stats(self.current_monster.active_effects)
+            self.monster_effects_hash = current_monster_hash
+        
+        monster_eff = self.cached_monster_eff
         ability = self.current_monster.choose_ability(self.game)
         
         # effects DEBUG
@@ -282,9 +300,9 @@ class CombatManager:
              style["color"] = color
 
         if x == 0 and y == 0:
-            surf = pygame.display.get_surface()
-            sw = surf.get_width() if surf else 800
-            sh = surf.get_height() if surf else 700
+            #surf = pygame.display.get_surface()
+            sw = self.screen_width
+            sh = self.screen_height
 
             if target == "player":
                 base_x = 180
