@@ -32,6 +32,18 @@
         "rarity": "common",
         "icon": "smallmppotion1.png",
         "stackable": true
+    },
+        "anti_poison_potion": {
+        "name": "Anti-Poison Potion",
+        "type": "consumable",
+        "description": "Protects the user from some poison damage",
+        "duration": 30,
+        "rarity": "common",
+        "stackable": true,
+        "flags": {
+            "poison_protection": true
+        },
+        "icon": "anti_poison.png"
     }
 
 }

@@ -19,6 +19,7 @@
             { "stat": "armor_flat", "value": -2 }
         ]
     },
+    
     "wolf_howl": {
         "name": "Wolf Howl",
         "type": "self_buff",
@@ -37,6 +38,59 @@
             {"stat": "damage_pct", "value": 0.10},
             {"stat": "crit_pct", "value": 0.10},
             {"stat": "dodge_pct", "value": 0.05}
+        ]
+    },
+    
+    "life_leech": {
+        "name": "Life Leech",
+        "type": "on_hit",
+        "leech_pct": 0.50,
+        "log_text": "The bat drains the life from its victim."
+    },
+    
+    "web_wrap": {
+        "name": "Web Wrap",
+        "type": "debuff",
+        "chance": 0.25,
+        "cooldown": 10,
+        "duration": 6,
+        "stun_duration": 1.5,
+        "log_text": "Svarvefnir ensnares the player in a thick web!",
+
+        "tooltip": [
+            "-20% Attack Speed"
+        ],
+        
+        "effects": [
+            {"stat": "attack_speed_pct", "value": 0.20}
+        ]
+    },
+    "venom_strike": {
+        "name": "Venom Strike",
+        "type": "debuff",
+        "chance": 0.8,
+        "cooldown": 15,
+        "poison": true,
+        "duration": 10,
+        "tick_damage": 100,
+        "reduced_tick_damage": 10,
+        "tick_interval": 1.0
+    },
+    "enrage":{
+        "name": "Enrage",
+        "type": "self_buff",
+        "duration": 9999,
+        "trigger_hp_pct": 0.30,
+        "log_text": "Svartvefnir becomes enraged!",
+
+        "tooltip":[
+            "+50% Damage",
+            "40% Increased Attack Speed"
+        ],
+
+        "effects": [
+            {"stat": "damage_pct", "value": 0.50},
+            {"stat": "attack_speed_pct", "value": -0.40}
         ]
     }
 }

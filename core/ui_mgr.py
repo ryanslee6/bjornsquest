@@ -210,7 +210,7 @@ class VendorWindow:
         self.items_for_sale = [
             {"id": "health_potion_small", "price": 10},
             {"id": "mana_potion_small", "price": 12},
-            #{"id": "vial_of_water", "price": 5},
+            {"id": "anti_poison_potion", "price": 5},
             {"id": "Auto Attack", "price": 5},
 
             # ----- Training Equipment -----

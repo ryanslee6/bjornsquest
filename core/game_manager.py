@@ -120,7 +120,7 @@ class GameManager:
         self.monster_pages = [
             {
                 "monsters": ["Goblin", "Bat", "Skeleton", "Wolf"],
-                "boss": "Boss1"
+                "boss": "Svartvefnir"
             },
             {
                 "monsters": ["Zombie"]
@@ -463,6 +463,7 @@ class GameManager:
 
         self.combat.update_projectiles(dt)
         self.combat.update_burns(dt)
+        self.combat.update_poisons(dt)
         self.combat.update_heal_spell_particles(dt)
         #print("[DEBUG] calling update_battlecry_waves, waves:", len(self.combat.battlecry_waves))
         self.combat.update_battlecry_waves(dt)
@@ -866,12 +867,16 @@ class GameManager:
         if self.current_monster.sprite:
             sprite = self.current_monster.sprite
             
-            scaled_sprite = pygame.transform.scale(sprite, (enemy_sprite_rect.width, enemy_sprite_rect.height))
-             
-            sprite_x = enemy_sprite_rect.x + (enemy_sprite_rect.width - scaled_sprite.get_width()) // 2
-            sprite_y = enemy_sprite_rect.y + (enemy_sprite_rect.height - scaled_sprite.get_height()) // 2
+            rect = sprite.get_rect(center = enemy_sprite_rect.center)
+
+            self.screen.blit(sprite, rect)
             
-            self.screen.blit(scaled_sprite, (sprite_x, sprite_y))
+            #scaled_sprite = pygame.transform.scale(sprite, (enemy_sprite_rect.width, enemy_sprite_rect.height))
+             
+            #sprite_x = enemy_sprite_rect.x + (enemy_sprite_rect.width - scaled_sprite.get_width()) // 2
+            #sprite_y = enemy_sprite_rect.y + (enemy_sprite_rect.height - scaled_sprite.get_height()) // 2
+            
+            #self.screen.blit(scaled_sprite, (sprite_x, sprite_y))
 
             #flash effect on hit
             now = pygame.time.get_ticks()
@@ -879,12 +884,27 @@ class GameManager:
             if (self.combat.enemy_hit_flash_timer > 0 and now - self.combat.enemy_hit_flash_timer < self.combat.enemy_hit_flash_duration):
                 #flash every  50 ms
                 if ((now - self.combat.enemy_hit_flash_timer) // 50) % 2 == 0:               
-                    flash_surf = scaled_sprite.copy()
+                    flash_surf = sprite.copy()
                     flash_surf.fill((255, 255, 255), special_flags = pygame.BLEND_RGB_ADD)
-                    self.screen.blit(flash_surf, (sprite_x, sprite_y))
+                    self.screen.blit(flash_surf, rect)
             else:
-                    self.combat.enemy_hit_flash_timer = 0    
-                    
+                    self.combat.enemy_hit_flash_timer = 0 
+
+            # ---------------------------------------------------------
+            # Apply enraged red flash overlay
+            # ---------------------------------------------------------   
+            alpha = getattr(self.combat, "enrage_flash_alpha", 0)
+
+            if alpha > 0:
+                flash_surf = sprite.copy()
+                
+                #apply red tint to sprites pixels
+                flash_surf.fill((255, 0, 0, 0), special_flags = pygame.BLEND_RGBA_ADD)
+
+                #apply alpha by multiplying the sprite
+                flash_surf.set_alpha(alpha)
+
+                self.screen.blit(flash_surf, rect)     
 
         else:
             pygame.draw.rect(self.screen, (30, 30, 30), enemy_sprite_rect, border_radius = 8)
@@ -1117,7 +1137,31 @@ class GameManager:
             x = start_x + i * (box_size + padding)
             rect = pygame.Rect(x, start_y, box_size, box_size)
 
-            icon_key = effect.get("icon", "").lower()
+            
+            # ----------------------------------------------------
+            # 1) DIRECT ICON SURFACE SUPPORT (for consumables)
+            # ----------------------------------------------------
+            if effect.get("icon_surface"):
+                surf = pygame.transform.scale(effect["icon_surface"], (box_size, box_size))
+                self.screen.blit(surf, rect.topleft)
+
+                #still draw the border
+                pygame.draw.rect(self.screen, (255, 255, 255), rect, 2)
+
+                #draw cooldown overlay if needed
+                self.draw_radial_cooldown(self.screen, rect, effect)
+
+                if rect.collidepoint(mouse_x, mouse_y):
+                    self.hovered_effect = effect
+
+                continue
+
+            # ----------------------------------------------------
+            # 2) ICON-KEY LOOKUP (standard system for spells/buffs)
+            # ----------------------------------------------------
+
+            raw_key = effect.get("icon", "")
+            icon_key = raw_key.lower() if isinstance(raw_key, str) else ""
             icon = self.buff_icons.get(icon_key)
 
             bg_color = (40, 40, 40)
@@ -1303,17 +1347,14 @@ class GameManager:
                 lines.append(f"{sign}{pct}% Damage")
 
             elif stat == "attack_speed_pct":
-                #val is a multipler on attack delay
-                #e.g. -0.15 means attack are 15% faster
-                speed_increase = int(abs(val) * 100)
+                pct = int(abs(val) * 100)
 
-                #positive buffs shown as green "+15% attack speed"
-                if val < 0:
-                    lines.append(f"+{speed_increase}% Attack Speed")
-
-                #in cases where val is > 0, show as slow-down debuff
+                # val > 0 → delay increases → you attack slower
+                if val > 0:
+                    lines.append(f"-{pct}% Attack Speed (Slowed)")
                 else:
-                    lines.append(f"-{speed_increase}% Attack Speed")
+                    # val < 0 → delay decreases → you attack faster
+                    lines.append(f"+{pct}% Attack Speed (Haste)")
 
             elif stat == "armor_flat":
                 sign = "+" if val > 0 else ""

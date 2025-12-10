@@ -1,5 +1,6 @@
 import pygame
 import os
+import time
 
 class Item:
     def __init__(self, item_id, data, sprite = None):
@@ -56,6 +57,20 @@ class ConsumableItem(Item):
         self.heal_amount = data.get("heal_amount", 0)
         self.mana_amount = data.get("mana_amount", 0)
 
+        self.duration = data.get("duration", 0)
+        self.flags = data.get("flags", {})
+
+        self.icon_name = data.get("icon", "")
+
+        #load icon image for consumables
+        self.icon_surface = None
+        if self.icon_name:
+            try:
+                path = os.path.join("assets", "images", self.icon_name)
+                self.icon_surface = pygame.image.load(path).convert_alpha()
+            except Exception as e:
+                print(f"[WARNING] Failed to load icon '{self.icon_name}' for item '{self.id}': {e}")
+
     def use(self, player):
         #heal player
 
@@ -93,6 +108,63 @@ class ConsumableItem(Item):
                 target = "player",
                 text_type = "mana"
             )
+
+        # ------------------------------------------------
+        # 3) Apply duration-based effects (buffs/debuffs)
+        # ------------------------------------------------
+        duration = getattr(self, "duration", 0)
+        flags = getattr(self, "flags", {})
+
+        #If this consumable has a duration or flags, treat it as a status effect
+        if duration > 0 or flags:
+            now = time.time()
+            new_exp = now + duration
+
+            # ------------------------------------------
+            # A) Check if this effect already exists
+            # ------------------------------------------
+            for eff in player.active_effects:
+                if eff.get("raw_key") == self.id:
+                    #Refresh duraiton
+                    eff["expires"] = new_exp
+                    eff["expires_at"] = new_exp
+                    eff["start"] = now
+
+                    print("[EFFECT] Anti-poison resfreshed")
+
+                    #keep poison protection active:
+                    if flags.get("poison_protection"):
+                        player.is_poison_protected = True
+
+                    return
+                
+
+            # ------------------------------------------------
+            # B) Otherwise create a NEW effect entry
+            # ------------------------------------------------
+            effect_entry = {
+                "name": self.name,
+                "raw_key": self.id,
+                "expires": new_exp,
+                "expires_at": new_exp,
+                "duration": duration,
+                "start": now,
+                "icon_surface": self.icon_surface,
+                "icon": None,
+                "description": self.description,
+                "flags": flags,
+                "color": (80, 200, 80)
+            }
+
+            #add to players active effects list
+            player.active_effects.append(effect_entry)
+
+            #apply any immediate flags (like poison protection)
+            if flags.get("poison_protection"):
+                player.is_poison_protected = True
+                print("[EFFECT] Anti-poison protection applied")
+
+                #print("[DEBUG EFFECT ENTRY]", effect_entry)
 
     def tooltip_text(self):
         base = super().tooltip_text()

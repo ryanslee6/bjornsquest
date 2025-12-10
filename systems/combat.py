@@ -23,6 +23,7 @@ class CombatManager:
         self.floating_text_enemy = []
         self.projectiles = []
         self.active_burns = []
+        self.active_poisons = []
         self.battlecry_waves = []
         self.combat_active = True
         self.monster_defeated = False
@@ -52,6 +53,8 @@ class CombatManager:
         self.enemy_hit_flash_duration = 200  #ms
         self.enemy_hit_flash_delay = int(self.player_attack_anim_duration * 0.6)
 
+        self.enrage_flash_timer = 0
+        self.enrage_flash_alpha = 0
         
 
 
@@ -61,6 +64,11 @@ class CombatManager:
 
         current_time = time.time()
         something_happened = False
+
+        if hasattr(self.player, "remove_expired_effects"):
+            self.player.remove_expired_effects()
+        if hasattr(self.current_monster, "remove_expired_effects"):
+            self.current_monster.remove_expired_effects()
 
         self._update_effects(self.player, current_time)
         self._update_effects(self.current_monster, current_time)
@@ -83,10 +91,46 @@ class CombatManager:
             else:
                 self.current_monster.is_stunned = False
 
+        #player stun check
+        if getattr(self.player, "is_stunned", False):
+            if time.time() >= getattr(self.player, "stun_expires_at", 0):
+                self.player.is_stunned = False
+            else:
+                #Player is stunned → skip all player attack logic
+                return something_happened
+
         player_eff = self.player.stats.compute_effective_stats(self.player.active_effects)
+        
+        #player attack speed debug
+        #print(f"[DEBUG] Player effective AS = {player_eff['attack_speed']:.3f}  (base={self.player.stats.attack_speed:.3f})")
+        #print(f"[DEBUG] Active effects: {self.player.active_effects}")
+
         if current_time - self.last_player_attack >= player_eff["attack_speed"]:
             if self.player.is_alive() and self.current_monster.is_alive():
                 dmg, is_miss, is_crit, is_dodged = self.player.attack(self.current_monster)
+
+                # ---------------------------------------------------------
+                # BOSS ENRAGE IF BELOW HP THRESHOLD
+                # ---------------------------------------------------------
+                if hasattr(self.current_monster, "abilities") and "enrage" in self.current_monster.abilities:
+                    ability_data = self.game.ability_data.get("enrage", {})
+                    threshold = ability_data.get("trigger_hp_pct", 0.30)
+
+                    if (self.current_monster.stats.hp / self.current_monster.stats.max_hp) <= threshold:
+                        if not hasattr(self.current_monster, "is_enraged") or not self.current_monster.is_enraged:
+                            self.current_monster.is_enraged = True
+
+                            self.add_log(f"{self.current_monster.name} bcomes enraged!")
+                            self.current_monster.cast_ability("enrage", self.current_monster, self.game)
+
+                            self.add_floating_text(
+                                "Enraged!",
+                                0, 0,
+                                text_type = "buff",
+                                target = "enemy"
+                            )
+
+
                 if is_miss:
                     self.add_log(f"{self.player.name} misses {self.current_monster.name}!")
                     self.add_floating_text("Miss!", 0, 0, text_type="combat", target="enemy")
@@ -124,8 +168,8 @@ class CombatManager:
         ability = self.current_monster.choose_ability(self.game)
         
         # effects DEBUG
-        print("Monster Effective Stats:",
-            "DMG", monster_eff["min_damage"], "-", monster_eff["max_damage"])#,
+        #print("Monster Effective Stats:",
+        #    "DMG", monster_eff["min_damage"], "-", monster_eff["max_damage"],
         #    "| AS", monster_eff["attack_speed"],
         #    "| Armor", monster_eff["armor"],
         #    "| Effects:", self.current_monster.active_effects)
@@ -133,20 +177,25 @@ class CombatManager:
 
         if current_time - self.last_monster_attack >= monster_eff["attack_speed"]:
             if self.player.is_alive() and self.current_monster.is_alive():
-                dmg, is_miss, is_crit, is_dodged = self.current_monster.attack(self.player)
+                dmg, is_miss, is_crit, is_dodged = self.current_monster.attack(self.player, self.game)
                 
-                if ability:
-                    self.add_log(f"{self.current_monster.name} uses {ability}!")
-                    self.current_monster.cast_ability(ability, self.player, self.game)
-                    latest_effect = self.current_monster.active_effects[-1]
-                    display_name = latest_effect["name"]
+                #if ability:
+                #    self.add_log(f"{self.current_monster.name} uses {ability}!")
+                #    self.current_monster.cast_ability(ability, self.player, self.game)
+                    
+                #    if self.current_monster.active_effects:
+                #        latest_effect = self.current_monster.active_effects[-1]
+                #        display_name = latest_effect["name"]
+                #    else:
+                #        ability_data = self.game.ability_data.get(ability, {})
+                #        display_name = ability_data.get("name", ability)
             
-                    self.add_floating_text(
-                        display_name,
-                        0, 0,
-                        text_type = "buff",
-                        target = "enemy"
-                    )
+                #    self.add_floating_text(
+                #        display_name,
+                #        0, 0,
+                #        text_type = "buff",
+                #        target = "enemy"
+                #    )
                 
                 if is_miss:
                     self.add_log(f"{self.current_monster.name} misses {self.player.name}!")
@@ -189,6 +238,21 @@ class CombatManager:
         #dt = now - self._last_tick
         self.last_tick = now
         #self.update_floating_text(dt)
+
+        # ---------------------------------------------------------
+        # ENRAGE RED FLASH UPDATE
+        # ---------------------------------------------------------
+        if hasattr(self.current_monster, "is_enraged") and self.current_monster.is_enraged:
+            #pulse speed
+            speed = 4.0 #higher = faster flashes
+
+            #compute alpha from sine wave
+            t = time.time()
+            pulse = (math.sin(t * speed) + 1) / 2 # 0 → 1
+            self.enrage_flash_alpha = int(pulse * 120) #max alpha = 120
+        else:
+            self.enrage_flash_alpha = 0
+
 
         return something_happened
     
@@ -417,6 +481,7 @@ class CombatManager:
         target.active_effects.append({
             "name": "Burn",
             "color": (255, 80, 0),
+            "expires": time.time() + duration,
             "expires_at": time.time() + duration,
             "duration": duration,
             "start": time.time(),
@@ -476,6 +541,105 @@ class CombatManager:
             if current_time >= burn["start"] + burn["duration"]:
                 self.active_burns.remove(burn)
                 continue
+
+    def add_poison_effect(self, target, damage, reduced_damage, interval, duration):
+        if not hasattr(target, "active_effects"):
+            target.active_effects = []
+
+        #Refreshing poison instead of stacking for now
+        for effect in target.active_effects:
+            if effect["name"] == "Poison":
+                effect["expires_at"] = time.time() + duration
+                effect["start"] = time.time()
+                return
+            
+        #Debuff indicator
+        target.active_effects.append({
+            "name": "Poison",
+            "color": (0, 255, 0),
+            "expires": time.time() + duration,
+            "expires_at": time.time() + duration,
+            "duration": duration,
+            "start": time.time(),
+            "description": f"Poisoned: takes {damage}damage every {interval}s.",
+            "icon": "poison"
+        })
+
+        #Adds functional dot
+        self.active_poisons.append({
+            "target": target,
+            "damage": damage,
+            "reduced_damage": reduced_damage,
+            "interval": interval,
+            "duration": duration,
+            "start": time.time(),
+            "next_tick_time": None
+        })
+
+    def update_poisons(self, dt):
+        current_time = time.time()
+
+        for poison in self.active_poisons[:]:
+            target = poison["target"]
+
+            if not target.is_alive():
+                self.active_poisons.remove(poison)
+                continue
+
+            #expired?
+            if current_time >= poison["start"] + poison["duration"]:
+                self.active_poisons.remove(poison)
+                continue
+
+            next_tick_time = poison.get("next_tick_time")
+
+            if next_tick_time is None:
+                poison["next_tick_time"] = poison["start"] + poison["interval"]
+                continue
+
+            if current_time >= poison["next_tick_time"]:
+                poison["next_tick_time"] += poison["interval"]
+
+                #anti poison check
+                dmg = poison["reduced_damage"] if target.is_poison_protected else poison["damage"]
+
+                #apply damage
+                target.stats.hp = max(0, target.stats.hp - dmg)
+
+                log_message = f"{target.name} takes {dmg} poison damage!"
+                if hasattr(self, "combat_log"):
+                    self.add_log(log_message)
+
+                self.add_floating_text(
+                    f"{dmg}",
+                    0, 0,
+                    text_type = "poison",
+                    target = "player"
+                )
+
+    def has_active_poison(self, target):
+        for p in self.active_poisons:
+            if p["target"] == target:
+                return True
+        return False
+    
+    def refresh_poison(self, target, duration):
+        now = time.time()
+        
+        #refresh dot
+        for p in self.active_poisons:
+            if p["target"] == target:
+                p["start"] = now
+                p["duration"] = duration
+                p["next_tick_time"] = None
+
+        #refresh ui entry
+        for eff in target.active_effects:
+            if eff["name"] == "Poison":
+                new_exp = now + duration
+                eff["expires"] = new_exp
+                eff["expires_at"] = new_exp
+                return
 
     def spawn_heal_effect(self, target, amount):
         #creates a burst of particles for the heal spell

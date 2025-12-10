@@ -16,6 +16,7 @@ class Player:
         self.regen_timer = 0
         self.gold = 100
         self.auto_combat_unlocked = False
+        self.is_poison_protected = False
 
         self.item_manager = item_manager
 
@@ -355,5 +356,9 @@ class Player:
             else:
                 if "revert" in effect:
                     effect["revert"](self)
+
+                if effect.get("flags", {}).get("poison_protection"):
+                    self.is_poison_protected = False
+                    print("[EFFECT] Anti-poison protection expired.")
 
         self.active_effects = new_list

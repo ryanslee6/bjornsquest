@@ -14,7 +14,9 @@
         "attack_speed": 1.7,
         "hit_chance": 0.90,
         "abilities": ["goblin_fervor"],
-        "sprite": "goblin1_cut.png"
+        "sprite": "goblin1_cut.png",
+        "is_boss": false,
+        "scale": 0.15
     },
     "Bat": {
         "level": 3,
@@ -30,7 +32,11 @@
         "dodge_chance": 0.05,
         "attack_speed": 1.5,
         "hit_chance": 0.90,
-        "sprite": "bat1.png"
+        "abilities": [],
+        "passives": ["life_leech"],
+        "sprite": "bat1.png",
+        "is_boss": false,
+        "scale": 0.15
     },
     "Skeleton": {
         "level": 5,
@@ -46,7 +52,9 @@
         "dodge_chance": 0.06,
         "attack_speed": 1.8,
         "hit_chance": 0.90,
-        "sprite": "skeleton_clipped.png"
+        "sprite": "skeleton_clipped.png",
+        "is_boss": false,
+        "scale": 0.15
     },
     "Wolf": {
         "level": 7,
@@ -63,23 +71,29 @@
         "attack_speed": 1.4,
         "hit_chance": 0.90,
         "abilities": ["wolf_howl"],
-        "sprite": "wolf1.png"
+        "sprite": "wolf1.png",
+        "is_boss": false,
+        "scale": 0.15
     },
-    "Boss1": {
+    "Svartvefnir": {
         "level": 12,
-        "base_hp": 250,
+        "base_hp": 150,
         "base_mp": 100,
         "strength": 15,
         "dexterity": 6,
-        "constitution": 12,
+        "constitution": 2,
         "intelligence": 6,
         "exp_reward": 25,
-        "min_damage": 30,
-        "max_damage": 45,
+        "min_damage": 3,
+        "max_damage": 4,
         "dodge_chance": 0.9,
         "attack_speed": 2.0,
         "hit_chance": 0.90,
-        "sprite": "boss1.png"
+        "abilities": ["web_wrap", "venom_strike", "enrage"],
+        "passives": [],
+        "sprite": "boss1.png",
+        "is_boss": true,
+        "scale": 0.3
     },
     "Zombie": {
         "level": 15,

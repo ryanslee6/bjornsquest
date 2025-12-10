@@ -33,8 +33,8 @@ class Stats:
 
         self.armor = 0
 
-        self.base_min_damage = 1
-        self.base_max_damage = 3
+        self.base_min_damage = 10
+        self.base_max_damage = 30
         self.damage_per_str = 0.25
 
         self.base_crit_chance = 0.05

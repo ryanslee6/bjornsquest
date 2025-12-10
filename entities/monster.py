@@ -41,12 +41,24 @@ class Monster:
         
         self.abilities = data.get("abilities", [])
         self.ability_cooldowns = {ability_id: 0.0 for ability_id in self.abilities}
+
+        self.passives = data.get("passives", [])
+
+        #passive skill debug
+        #print(f"[DEBUG] Monster {self.name} passives loaded:", self.passives)
+
     
 
         self.exp_reward = data["exp_reward"]
         self.sprite_path = os.path.join("assets", "images", data["sprite"])
         self.sprite = pygame.image.load(self.sprite_path).convert_alpha()
         
+        scale = data.get("scale", 1.0)
+
+        if scale != 1.0:
+            w = int(self.sprite.get_width() * scale)
+            h = int(self.sprite.get_height() * scale)
+            self.sprite = pygame.transform.scale(self.sprite, (w, h))
         
         self.alive = True
 
@@ -77,6 +89,10 @@ class Monster:
 
         if self.abilities and game:
             ability_name = self.choose_ability(game)
+
+            if ability_name == "enrage":
+                ability_name = None
+                
             if ability_name:
                 self.cast_ability(ability_name, target, game)
                 return 0, False, False, False
@@ -122,7 +138,9 @@ class Monster:
         final_damage = max(1, final_damage)
         
         target.stats.hp = max(0, target.stats.hp - final_damage)
-        
+
+        self.apply_on_hit_passives(final_damage, target, game)
+
         return final_damage, is_miss, is_crit, is_dodged
     
     def add_status_effect(self, name, duration, icon = None, color = (200, 200, 200)):
@@ -251,7 +269,72 @@ class Monster:
                 "tooltip": tooltip_lines
             }
 
-            target_obj.active_effects.append(entry)
+            if "stun_duration" in ability and target_obj is game.player:
+                stun_dur = ability["stun_duration"]
+                target_obj.is_stunned = True
+                target_obj.stun_expires_at = now + stun_dur
+
+
+            #only add UI entry if not a poison ability
+            if not ability.get("poison"):
+                target_obj.active_effects.append(entry)
 
             # optional combat log
             game.combat.add_log(entry["log_text"])
+
+            # ----------------------------------------------------
+            # POISON HANDLING
+            # ----------------------------------------------------
+            if ability.get("poison"):          
+                    
+                dmg = ability.get("tick_damage", 100)
+                reduced = ability.get("reduced_tick_damage", 10)
+                interval = ability.get("tick_interval", 1.0)
+                dur = ability.get("duration", 8)
+                    
+                if not game.combat.has_active_poison(target_obj):
+                    #call combat systems add poison effect
+                    game.combat.add_poison_effect(
+                        target_obj,
+                        damage = dmg,
+                        reduced_damage = reduced,
+                        interval = interval,
+                        duration = dur
+                    )
+
+                else:
+                    game.combat.refresh_poison(target_obj, dur)
+
+                #floating text
+                game.combat.add_floating_text(
+                    "Poisoned!",
+                    0, 0,
+                    text_type = "debuff",
+                    target = "player"
+                )
+
+    def has_passive(self, name: str) -> bool:
+        return any(p.lower() == name.lower() for p in self.passives)
+    
+    def apply_on_hit_passives(self, damage, target, game):
+        if damage <= 0 or game is None:
+            return
+        
+        #life leech
+        if self.has_passive("life_leech"):
+            ability = game.ability_data.get("life_leech", {})
+            pct = ability.get("leech_pct", 0)
+
+            heal_amount = int(damage * pct)
+
+            if heal_amount > 0:
+                self.stats.hp = min(self.stats.max_hp, self.stats.hp + heal_amount)
+
+                game.combat.add_log(f"{self.name} drains you for {heal_amount} HP!")
+
+                game.combat.add_floating_text(
+                    f"+{heal_amount}",
+                    0, 0,
+                    text_type = "heal",
+                    target = "enemy"
+                )
