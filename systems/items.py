@@ -77,8 +77,16 @@ class ConsumableItem(Item):
     def use(self, player):
         #heal player
 
+        #start = time.perf_counter()
+
         if self.heal_amount > 0:
+
+            #t1 = time.perf_counter()
+
             player.stats.hp = min(player.stats.max_hp, player.stats.hp + self.heal_amount)
+            
+            #print(f"[PERF] HP update: {(time.perf_counter() - t1) * 1000:.2f}ms")
+            
             print(f"{player.name} healed for {self.heal_amount} HP!")
 
             if hasattr(player.game, "player_draw_x"):
@@ -94,6 +102,7 @@ class ConsumableItem(Item):
             #if hasattr(self, "icon") and self.icon:
             #    icon_surface = pygame.transform.scale(self.icon, (20, 20))
 
+            #t2 = time.perf_counter()
             player.game.combat.add_floating_text(
                 f"+{self.heal_amount} HP",
                 0, 0,
@@ -101,6 +110,8 @@ class ConsumableItem(Item):
                 text_type = "heal",
                 icon = icon_surface
             )
+            #print(f"[PERF] add_floating_text: {(time.perf_counter() - t2) * 1000:.2f}ms")
+
         if self.mana_amount > 0:
             player.stats.mp = min(player.stats.max_mp, player.stats.mp + self.mana_amount)
             print(f"{player.name} restored {self.mana_amount} MP!")
@@ -168,6 +179,9 @@ class ConsumableItem(Item):
                 print("[EFFECT] Anti-poison protection applied")
 
                 #print("[DEBUG EFFECT ENTRY]", effect_entry)
+
+        #total = (time.perf_counter() - start) * 1000
+        #print(f"[PERF] TOTAL use() time: {total:.2f}ms")
 
     def tooltip_text(self):
         base = super().tooltip_text()

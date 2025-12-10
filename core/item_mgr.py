@@ -7,6 +7,7 @@ from settings import RARITY_COLORS
 class ItemManager:
     def __init__(self, data_folder = "data"):
         self.item_data = {}
+        self.item_cache = {}
         self.tooltip_font = pygame.font.Font(None, 20)
 
         self.load_all_item_files(data_folder)
@@ -37,6 +38,11 @@ class ItemManager:
     # ------------------------------------------------------------
 
     def get(self, item_id):
+        #check cache first
+        if item_id in self.item_cache:
+            return self.item_cache[item_id]
+
+        #Not cached - create it
         data = self.item_data[item_id]
 
         if data.get("type") == "consumable":
@@ -89,5 +95,6 @@ class ItemManager:
         item.name_height = item.name_surface.get_height()
 
         item.qty_surfaces = {}
+        self.item_cache[item_id] = item
 
         return item   

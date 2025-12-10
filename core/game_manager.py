@@ -196,6 +196,14 @@ class GameManager:
                     return
 
     def _handle_inventory_events(self, event):
+
+        #if event.button == 3:
+        #    start = time.perf_counter()
+        #    result = self.inventory_window.click(event.pos, event.button)
+        #    elapsed = (time.perf_counter() - start) * 1000
+        #    print(f"[PERF] inventory click handler: {elapsed:.2f}ms")
+        #    return result
+
         #right click uses item
         if event.button == 3 and self.inventory_window.click(event.pos, event.button):
             return True
@@ -368,9 +376,7 @@ class GameManager:
                 elif text == "Inventory":
                     self.show_inventory = not self.show_inventory
                     if self.show_inventory:
-                        #reset cache so it rebuilds
-                        self.inventory_window.render_cache = None
-                        self.inventory_window.cached_inventory = None
+                        self.inventory_window.mark_dirty()
                     print("[UI] Toggling Inventory Window")
                     return True
                 

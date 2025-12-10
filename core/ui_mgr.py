@@ -25,6 +25,14 @@ class InventoryWindow:
         self.cached_inventory = None
         self.cached_items = {}
 
+        self.needs_rebuild = True
+
+    def mark_dirty(self):
+        #call this whenever inventory changes
+        self.needs_rebuild = True
+        self.render_cache = None
+        self.cached_inventory = None
+
     def rebuild_item_list(self):
         #create a surface for the inventory content (not panel)
         content = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
@@ -86,20 +94,20 @@ class InventoryWindow:
         # --- SAFETY GUARD ---
         # If render_cache somehow failed to build or was never built,
         # rebuild it so we never try to blit a None surface.
-        if self.render_cache is None:
-            self.rebuild_item_list()
+        #if self.render_cache is None:
+        #    self.rebuild_item_list()
         # ---------------------
+
+        if self.needs_rebuild:
+            self.cached_inventory = [entry.copy() for entry in self.game.player.inventory]
+            self.rebuild_item_list()
+            self.needs_rebuild = False
 
         offset_x = 150
         x = SCREEN_WIDTH // 2 - self.width // 2 + offset_x
         y = SCREEN_HEIGHT // 2 - self.height // 2
 
         screen.blit(self.panel_surface, (x, y))
-
-        if self.cached_inventory is None or self.cached_inventory != self.game.player.inventory:
-            self.cached_inventory = [entry.copy() for entry in self.game.player.inventory]
-            self.rebuild_item_list()
-
         screen.blit(self.render_cache, (x, y))
 
         mouse_pos = pygame.mouse.get_pos()
@@ -143,15 +151,29 @@ class InventoryWindow:
             ry += surf.get_height()
 
     def click(self, pos, button):
+        #import time
+
+        #t_start = time.perf_counter()
+
         offset_x = SCREEN_WIDTH // 2 - self.width // 2 + 150
         offset_y = SCREEN_HEIGHT //2 - self.height // 2
+
+        #t1 = time.perf_counter()
+        #print(f"[PERF] click - setup: {(t1 - t_start) * 1000:.2f}ms")
 
         for rect, entry in self.item_rects:
             adjusted_rect = rect.move(offset_x, offset_y)
                 
             if adjusted_rect.collidepoint(pos):
+
+                #t2 = time.perf_counter()
+                #print(f"[PERF] click - found item: {(t2 - t1) * 1000:.2f}ms")
+
                 item_id = entry["id"]
                 item = self.game.items.get(item_id)
+
+                #t3 = time.perf_counter()
+                #print(f"[PERF] click - got item: {(t3 - t2) * 1000:.2f}ms")
 
                 # ----------------------------------------------
                 # RIGHT-CLICK → Equip OR Use
@@ -160,8 +182,16 @@ class InventoryWindow:
 
                     #consumable use
                     if item.type == "consumable":
+                        #t4 = time.perf_counter()
                         self.game.player.use_item(item_id, self.game.items)
+                        #print(f"[PERF] click - use_item: {(time.perf_counter() - t4) * 1000:.2f}ms")
+
+                        #t5 = time.perf_counter()
                         print(f"[ITEM] Used {item.name}")
+                        self.mark_dirty()
+                        #print(f"[PERF] click - mark_dirty: {(time.perf_counter() - t5) * 1000:.2f}ms")
+
+                        #print(f"[PERF] click - TOTAL: {(time.perf_counter() - t_start) * 1000:.2f}ms")
                         return True
                     
                     #equipment equipping
@@ -170,10 +200,7 @@ class InventoryWindow:
 
                         if equipped:
                             print(f"[EQUIP] Equipped {item.name}")
-
-                            #inventory has changed → rebuild the cache
-                            self.render_cache = None
-                            self.cached_inventory = None
+                            self.mark_dirty()
                             return True
                 # ----------------------------------------------
                 # LEFT-CLICK → nothing for now (keeps UI open)
