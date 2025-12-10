@@ -55,7 +55,14 @@ class CombatManager:
 
         self.enrage_flash_timer = 0
         self.enrage_flash_alpha = 0
-        
+
+        # Font cache for performance - create once, reuse many times
+        self.font_cache = {
+            35: pygame.font.Font(None, 35),
+            40: pygame.font.Font(None, 40),
+            70: pygame.font.Font(None, 70),
+            80: pygame.font.Font(None, 80),
+        }
 
 
     def update(self, dt):
@@ -323,21 +330,50 @@ class CombatManager:
         
         
 
+        # Pre-render all surfaces once at creation time for performance
+        font_size = style["font_size"]
+        if font_size not in self.font_cache:
+            self.font_cache[font_size] = pygame.font.Font(None, font_size)
+
+        font = self.font_cache[font_size]
+        scale = 1.0
+
+        # Pre-render main text
+        text_surf = font.render(text, True, style["color"])
+        text_scaled = pygame.transform.rotozoom(text_surf, 0, scale)
+
+        # Pre-render outline surfaces (4 directions)
+        outline_surfaces = []
+        for ox, oy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            outline_surf = font.render(text, True, style["outline"])
+            outline_scaled = pygame.transform.rotozoom(outline_surf, 0, scale)
+            outline_surfaces.append((outline_scaled, ox, oy))
+
+        # Pre-scale icon if present
+        icon_surf = None
+        icon_offset_x = 0
+        if icon:
+            icon_h = int(font_size * scale)
+            icon_w = icon_h
+            icon_surf = pygame.transform.smoothscale(icon, (icon_w, icon_h))
+            icon_offset_x = icon_w
+
         entry = {
             "text": text,
             "x": x + random.randint(-6, 6),
             "y": y,
             "base_y": y,
             "alpha": 255,
-            "scale": 1.0,
+            "scale": scale,
             "float_speed": 40,
             "time": 0,
-            "outline": style["outline"],
-            "color": style["color"],
-            "font_size": style["font_size"],
             "target": target,
             "type": text_type,
-            "icon": icon
+            # Pre-rendered surfaces (huge performance boost!)
+            "text_surface": text_scaled,
+            "outline_surfaces": outline_surfaces,
+            "icon_surface": icon_surf,
+            "icon_offset_x": icon_offset_x
         }
 
         if target == "enemy":
@@ -371,44 +407,44 @@ class CombatManager:
                     group.remove(entry)
 
     def draw_floating_text(self, surface):
+        """Draw floating text using pre-rendered surfaces for optimal performance."""
         for group in [self.floating_text_enemy, self.floating_text_player]:
             for entry in group:
-                #fallback defaults
-                font_size = entry.get("font_size", 28)
-                color = entry.get("color", (255, 255, 255))
-                outline = entry.get("outline", (0, 0, 0))
-                alpha = entry.get("alpha", 255)
-                scale = entry.get("scale", 1.0)
+                # Get position and alpha
                 x = entry.get("x", 0)
                 y = entry.get("y", 0)
-                text = entry.get("text", "")
-                icon = entry.get("icon", None)
-                
-                
-                font = pygame.font.Font(None, font_size)
-                text_surf = font.render(text, True, color)
-                text_surf.set_alpha(alpha)
+                alpha = entry.get("alpha", 255)
 
-                scaled = pygame.transform.rotozoom(text_surf, 0, scale)
-                rect = scaled.get_rect(center = (x, y))
+                # Get pre-rendered surfaces
+                text_surf = entry.get("text_surface")
+                outline_surfaces = entry.get("outline_surfaces", [])
+                icon_surf = entry.get("icon_surface")
+                icon_offset_x = entry.get("icon_offset_x", 0)
 
-                if icon:
-                    icon_h = int(font_size * scale)
-                    icon_w = icon_h
-                    icon_surf = pygame.transform.smoothscale(icon, (icon_w, icon_h))
+                if not text_surf:
+                    continue  # Skip if no surface (shouldn't happen)
 
-                    icon_rect = icon_surf.get_rect(center = (x - icon_w, y))
-                    surface.blit(icon_surf, icon_rect)
+                # Calculate text position
+                rect = text_surf.get_rect(center=(x, y))
 
-                    rect.x += icon_w
+                # Draw icon if present
+                if icon_surf:
+                    icon_copy = icon_surf.copy()
+                    icon_copy.set_alpha(alpha)
+                    icon_rect = icon_copy.get_rect(center=(x - icon_offset_x, y))
+                    surface.blit(icon_copy, icon_rect)
+                    rect.x += icon_offset_x
 
-                for ox, oy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    outline_surf = font.render(text, True, outline)
-                    outline_surf.set_alpha(alpha)
-                    outline_scaled = pygame.transform.rotozoom(outline_surf, 0, scale)
-                    surface.blit(outline_scaled, (rect.x + ox, rect.y + oy))
+                # Draw outline (pre-rendered)
+                for outline_surf, ox, oy in outline_surfaces:
+                    outline_copy = outline_surf.copy()
+                    outline_copy.set_alpha(alpha)
+                    surface.blit(outline_copy, (rect.x + ox, rect.y + oy))
 
-                surface.blit(scaled, rect)
+                # Draw main text (pre-rendered)
+                text_copy = text_surf.copy()
+                text_copy.set_alpha(alpha)
+                surface.blit(text_copy, rect)
 
     def spawn_heal_particles(self, x, y):
          for _ in range(16):
