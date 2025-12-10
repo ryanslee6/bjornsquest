@@ -44,6 +44,9 @@ class Monster:
 
         self.passives = data.get("passives", [])
 
+        self.current_shield = 0
+        self.max_shield = 0
+
         #passive skill debug
         #print(f"[DEBUG] Monster {self.name} passives loaded:", self.passives)
 
@@ -78,6 +81,43 @@ class Monster:
 
     def is_alive(self):
         return self.stats.hp > 0
+    
+    def take_damage(self, damage):
+        #apply damage to this monster, checking shield first.
+        #Returns: (actual_hp_damage, shield_damage, shield_broke)
+        if damage <= 0:
+            return 0, 0, False
+        
+        shield_broke = False
+        shield_damage = 0
+        hp_damage = 0
+
+        #If monster has a shield, it absorbs damage first
+        if self.current_shield > 0:
+
+            #print(f"[SHIELD] {self.name} has {self.current_shield} shield, taking {damage} damage")
+
+            if damage <= self.current_shield:
+                #shield absorbs all damage
+                shield_damage = damage
+                self.current_shield -= damage
+                hp_damage = 0
+                #print(f"[SHIELD] Shield absorbed all damage! Shield remaining: {self.current_shield}")
+            else:
+                #shield breaks, overflow goes to HP
+                shield_damage = self.current_shield
+                hp_damage = damage - self.current_shield
+                self.current_shield = 0
+                shield_broke = True
+                #print(f"[SHIELD] Shield broke! {hp_damage} damage to HP")
+
+        else:
+            #no shield, damage goes straight to hp
+            hp_damage = damage
+
+        self.stats.hp = max(0, self.stats.hp - hp_damage)
+
+        return hp_damage, shield_damage, shield_broke
     
     def attack(self, target, game = None):
         import random
@@ -137,7 +177,7 @@ class Monster:
 
         final_damage = max(1, final_damage)
         
-        target.stats.hp = max(0, target.stats.hp - final_damage)
+        hp_dmg, shield_dmg, shield_broke = target.take_damage(final_damage)
 
         self.apply_on_hit_passives(final_damage, target, game)
 
@@ -154,7 +194,7 @@ class Monster:
             "color": color
         })
 
-    def remove_expired_effects(self):
+    def remove_expired_effects(self, game = None):
         now = time.time()
         new_list = []
 
@@ -162,6 +202,15 @@ class Monster:
             if now < effect["expires_at"]:
                 new_list.append(effect)
             else:
+
+                if effect.get("raw_key") == "bone_shield":
+                    #clear the shield when bone shield expires
+                    self.current_shield = 0
+                    self.max_shield = 0
+
+                    if game and hasattr(game, 'combat'):
+                        game.combat.add_log(f"{self.name}'s Bone Shield fades away.")
+
                 if "revert" in effect:
                     effect["revert"](self)
 
@@ -268,6 +317,23 @@ class Monster:
                 "log_text": ability.get("log_text", ability_name),
                 "tooltip": tooltip_lines
             }
+
+            # ----------------------------------------------------
+            # SHIELD HANDLING (Bone Shield, etc.)
+            # ----------------------------------------------------
+            if "shield_amount" in ability:
+                shield_value = ability["shield_amount"]
+                target_obj.current_shield = shield_value
+                target_obj.max_shield = shield_value
+                game.combat.add_log(f"{target_obj.name} gains a {shield_value} HP Shield!")
+
+                #add shield floating text
+                game.combat.add_floating_text(
+                    f"Shield+{shield_value}",
+                    0, 0,
+                    text_type = "buff",
+                    target = "enemy"
+                )
 
             if "stun_duration" in ability and target_obj is game.player:
                 stun_dur = ability["stun_duration"]

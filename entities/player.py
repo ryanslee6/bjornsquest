@@ -18,6 +18,9 @@ class Player:
         self.auto_combat_unlocked = False
         self.is_poison_protected = False
 
+        self.current_shield = 0
+        self.max_shield = 0
+
         self.item_manager = item_manager
 
         self.equipment = {
@@ -223,6 +226,39 @@ class Player:
     def is_alive(self):
         return self.stats.hp > 0
     
+    def take_damage(self, damage):
+        #apply damage to player, checking shield first
+        #returns: (actual_hp_damage, shield_damage, shield_broke)
+
+        if damage <= 0:
+            return 0, 0, False
+        
+        shield_broke = False
+        shield_damage = 0
+        hp_damage = 0
+
+        #if player has shield, it absorbs damage first
+        if self.current_shield > 0:
+            if damage <= self.current_shield:
+                #shield absorbs all damage
+                shield_damage = damage
+                self.current_shield -= damage
+                hp_damage = 0
+            else:
+                #shield breaks, overflow goes to hp
+                shield_damage = self.current_shield
+                hp_damage = damage - self.current_shield
+                self.current_shield = 0
+                shield_broke = True
+        else:
+            #no shield, damage goes straigh tto hp
+            hp_damage = damage
+
+        #apply hp damage
+        self.stats.hp = max(0, self.stats.hp - hp_damage)
+
+        return hp_damage, shield_damage, shield_broke
+    
     def attack(self, target):
         import random
 
@@ -263,7 +299,7 @@ class Player:
         final_damage = max(1, final_damage)
 
         #apply damage
-        target.stats.hp = max(0, target.stats.hp - final_damage)
+        hp_dmg, shield_dmg, shield_broke = target.take_damage(final_damage)
         
         return final_damage, is_miss, is_crit, is_dodged
     
@@ -346,7 +382,7 @@ class Player:
             "color": color
         })
 
-    def remove_expired_effects(self):
+    def remove_expired_effects(self, game = None):
         now = time.time()
         new_list = []
 

@@ -850,10 +850,38 @@ class GameManager:
 
         monster_text = font.render(f"{monster.name} (Lvl {monster.level})", True, WHITE)
         self.screen.blit(monster_text, (enemy_x, enemy_y))
+        
+        #monster hp bar
         monster_hp_ratio = monster.stats.hp / monster.stats.max_hp
         pygame.draw.rect(self.screen, RED, (enemy_x, enemy_y + 30, bar_width, bar_height))
         pygame.draw.rect(self.screen, GREEN, (enemy_x, enemy_y + 30, int(bar_width * monster_hp_ratio), bar_height))
-        hp_text = f"{int(self.current_monster.stats.hp)}/{int(self.current_monster.stats.max_hp)}"
+        
+        #shield bar
+        if monster.current_shield > 0:
+            shield_color = LIGHT_BLUE
+
+            #calculate how much bar space is already used by hp
+            hp_bar_width = int(bar_width * monster_hp_ratio)
+
+            #calculate how much space is available for shield display
+            available_space = bar_width - hp_bar_width
+            
+            #calculate what the shield bar width should be if uncapped
+            shield_ratio = monster.current_shield / monster.stats.max_hp
+            uncapped_shield_width = int(bar_width * shield_ratio)
+
+            #cap it to available space
+            shield_width = min(uncapped_shield_width, available_space)
+
+            #draw shield bar starting from the right edge of the hp bar
+            shield_x = enemy_x + hp_bar_width
+            pygame.draw.rect(self.screen, shield_color, (shield_x, enemy_y + 30, shield_width, bar_height))
+        
+        #monster hp text
+        if monster.current_shield > 0:
+            hp_text = f"{int(monster.stats.hp)}+{int(monster.current_shield)}/{int(monster.stats.max_hp)}"
+        else:
+            hp_text = f"{int(monster.stats.hp)}/{int(monster.stats.max_hp)}"
         hp_text_surf = tiny_font.render(hp_text, True, WHITE)
 
         text_x = enemy_x + (bar_width // 2) - (hp_text_surf.get_width() // 2)

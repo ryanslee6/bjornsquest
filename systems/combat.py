@@ -81,9 +81,9 @@ class CombatManager:
         something_happened = False
 
         if hasattr(self.player, "remove_expired_effects"):
-            self.player.remove_expired_effects()
+            self.player.remove_expired_effects(self.game)
         if hasattr(self.current_monster, "remove_expired_effects"):
-            self.current_monster.remove_expired_effects()
+            self.current_monster.remove_expired_effects(self.game)
 
         self._update_effects(self.player, current_time)
         self._update_effects(self.current_monster, current_time)
@@ -127,7 +127,14 @@ class CombatManager:
 
         if current_time - self.last_player_attack >= player_eff["attack_speed"]:
             if self.player.is_alive() and self.current_monster.is_alive():
+                #shield status
+                had_shield = self.current_monster.current_shield > 0
+                shield_before = self.current_monster.current_shield
+
                 dmg, is_miss, is_crit, is_dodged = self.player.attack(self.current_monster)
+
+                shield_broke = had_shield and self.current_monster.current_shield == 0
+                hit_shield = had_shield and self.current_monster.current_shield > 0
 
                 # ---------------------------------------------------------
                 # BOSS ENRAGE IF BELOW HP THRESHOLD
@@ -164,11 +171,23 @@ class CombatManager:
                     something_happened = True
                     return
                 elif is_crit:
-                    self.add_log(f"{self.player.name} crits {self.current_monster.name} for {dmg} damage!")
+                    #check if damage crits shield
+                    if hit_shield:
+                        self.add_log(f"{self.player.name} crits {self.current_monster.name}'s shield for {dmg} damage!")
+                    elif shield_broke:
+                        self.add_log(f"{self.player.name}'s crit shatters {self.current_monster.name}'s shield")
+                    else:
+                        self.add_log(f"{self.player.name} crits {self.current_monster.name} for {dmg} damage!")
                     text_type = "crit"
                 else:
-                    self.add_log(f"{self.player.name} hits {self.current_monster.name} for {dmg} damage!")
+                    if hit_shield:
+                        self.add_log(f"{self.player.name} hits {self.current_monster.name}'s shield for {dmg} damage!")
+                    elif shield_broke:
+                        self.add_log(f"{self.player.name} breaks {self.current_monster.name}'s shield!")
+                    else:
+                        self.add_log(f"{self.player.name} hits {self.current_monster.name} for {dmg} damage!")
                     text_type = "damage"
+
                 self.last_player_attack = current_time
                 something_happened = True
 

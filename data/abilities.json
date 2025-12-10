@@ -92,5 +92,21 @@
             {"stat": "damage_pct", "value": 0.50},
             {"stat": "attack_speed_pct", "value": -0.40}
         ]
+    },
+    "bone_shield": {
+        "name": "Bone Shield",
+        "type": "self_buff",
+        "chance": 0.25,
+        "cooldown": 20,
+        "duration": 8,
+        "shield_amount": 150,
+        "log_text": "The skeleton summons a protective bone shield!",
+
+        "tooltip": [
+            "Absorbs 150 damage"
+        ],
+
+        "effects": []
+        
     }
 }

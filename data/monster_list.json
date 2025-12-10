@@ -52,6 +52,8 @@
         "dodge_chance": 0.06,
         "attack_speed": 1.8,
         "hit_chance": 0.90,
+        "abilities": ["bone_shield"],
+        "passives": [],
         "sprite": "skeleton_clipped.png",
         "is_boss": false,
         "scale": 0.15
