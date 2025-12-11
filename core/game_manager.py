@@ -44,6 +44,8 @@ class GameManager:
         with open(ABILITIES_PATH, "r") as f:
             self.ability_data = json.load(f)
         
+        #TODO (potentially clean this up later?)
+        
         def load_icon(name, filename):
             path = os.path.join("assets", "images", filename)
             if os.path.exists(path):
@@ -54,8 +56,13 @@ class GameManager:
                 print(f"[WARNING] Buff icon missing: {path}")
         
         load_icon("burn", "burn_debuff1.png")
-        
-        
+        load_icon("poison", "poison_debuff1.png")
+        load_icon("web_wrap", "web_debuff1.png")
+        load_icon("enrage", "spider_enrage.png")
+        load_icon("goblin_fervor", "goblin_fervor.png")
+        load_icon("bone_shield", "bone_shield.png")
+        load_icon("wolf_howl", "wolf_howl.png")
+        load_icon("life_leech", "life_leech.png")      
 
         self.combat_bg = pygame.image.load("assets/images/combat_bg1.png").convert_alpha()
         self.combat_bg = pygame.transform.scale(self.combat_bg, (SCREEN_WIDTH, SCREEN_HEIGHT - 52))

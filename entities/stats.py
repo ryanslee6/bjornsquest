@@ -2,6 +2,13 @@
 class Stats:
     def __init__(self, hp = 500, mp = 75, strength = 5, dexterity = 5, constitution = 5, intelligence = 5, is_player = False, dodge_chance = 0.0, attack_speed = 1.8, hit_chance = None, min_damage = None, max_damage = None):
 
+        #store base attribute values (for resetting after gear changes)
+        self.base_strength = strength
+        self.base_dexterity = dexterity
+        self.base_constitution = constitution
+        self.base_intelligence = intelligence
+
+        #current attribute values (will be modified by gear)
         self.strength = strength
         self.dexterity = dexterity
         self.constitution = constitution
@@ -76,13 +83,13 @@ class Stats:
             self.hp = self.max_hp
         else:
             self.hp = min(self.hp, self.max_hp)
-
+        
         self.max_mp = self.base_mp + (self.intelligence * self.mp_per_int)
         if not hasattr(self, "mp"):
             self.mp = self.max_mp
         else:
             self.mp = min(self.mp, self.max_mp)
-
+        
         self.hp_regen = self.base_hp_regen + (self.constitution * self.hp_regen_per_con)
         self.mp_regen = 0.05 + (self.intelligence * 0.01)
 
@@ -151,6 +158,12 @@ class Stats:
     
     def reset_to_base(self):
         #reset all combat relevant stats to base values before gear is applied
+
+        #Core attributes
+        self.strength = self.base_strength
+        self.dexterity = self.base_dexterity
+        self.constitution = self.base_constitution
+        self.intelligence = self.base_intelligence
 
         #armor
         self.armor = 0

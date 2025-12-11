@@ -468,10 +468,13 @@ class CombatManager:
                 if icon_surf:
                     icon_copy = icon_surf.copy()
                     icon_copy.set_alpha(alpha)
-                    icon_rect = icon_copy.get_rect(center=(x - icon_offset_x, y))
-                    surface.blit(icon_copy, icon_rect)
-                    rect.x += icon_offset_x
 
+                    #position icon just to the right of the text
+                    icon_rect = icon_copy.get_rect()
+                    icon_rect.midleft = (rect.right + 4, rect.centery)
+                    
+                    surface.blit(icon_copy, icon_rect)
+      
                 # Draw outline (pre-rendered)
                 for outline_surf, ox, oy in outline_surfaces:
                     outline_copy = outline_surf.copy()

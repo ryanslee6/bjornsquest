@@ -3,7 +3,7 @@ import os
 import time
 
 class Item:
-    def __init__(self, item_id, data, sprite = None):
+    def __init__(self, item_id, data, sprite = None, rolled_stats = None):
         self.id = item_id
         self.name = data.get("name", item_id)
         
@@ -29,6 +29,14 @@ class Item:
         #other equipment fields
         self.required_level = data.get("required_level", 1)
         self.enhancement_slots = data.get("enhancement_slots", 0)
+
+        #rolled stats (actual values for this specific item)
+        if rolled_stats:
+            self.rolled_armor = rolled_stats.get("armor", None)
+            self.rolled_stats = rolled_stats.get("bonus_stats", {})
+        else:
+            self.rolled_armor = None
+            self.rolled_stats = {}
         
         #Sprite / Icon handling        
         self.sprite = sprite
@@ -47,6 +55,21 @@ class Item:
             f"{self.name}",
             f"Type: {self.type.title()}",
         ]
+
+        #show level requirement (will be colored in rendering)
+        if hasattr(self, 'required_level') and self.required_level > 1:
+            lines.append(f"Level Required: {self.required_level}")
+
+        #show rolled armor value if it exists
+        if hasattr(self, 'rolled_armor') and self.rolled_armor is not None:
+            lines.append(f"Armor: {self.rolled_armor}")
+
+        #show bonus stats if they exist
+        if hasattr(self, 'rolled_stats') and self.rolled_stats:
+            for stat, value in self.rolled_stats.items():
+                if value > 0:
+                    lines.append(f"+{value} {stat.title()}")
+
         if self.description:
             lines.append(self.description)
         return lines

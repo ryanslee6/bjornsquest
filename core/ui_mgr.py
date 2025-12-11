@@ -37,10 +37,6 @@ class InventoryWindow:
         #create a surface for the inventory content (not panel)
         content = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
 
-        offset_x = 0
-        x = 0
-        y = 0
-
         title = self.font.render("Inventory", True, self.text_color)
         content.blit(title, (10, 10))
 
@@ -50,11 +46,27 @@ class InventoryWindow:
         self.item_rects = []
         y_offset = 40
 
-        self.cached_items = { entry["id"]: self.game.items.get(entry["id"])
-                          for entry in self.game.player.inventory }
+        #build cache - handle both stackable id and equipment
+        self.cached_items = {}
         
         for entry in self.game.player.inventory:
-            item = self.cached_items[entry["id"]]
+            if "item" in entry:
+                #equpment - already an Item object
+                item = entry["item"]
+                self.cached_items[id(item)] = item #use object ID as key
+            else:
+                #stackable - use item_id
+                item_id = entry["id"]
+                self.cached_items[item_id] = self.game.items.get(item_id)
+
+        for entry in self.game.player.inventory:
+            #get the item (handle both formats)
+            if "item" in entry:
+                item = entry["item"]
+                cache_key = id(item)
+            else:
+                item = self.cached_items[entry["id"]]
+                cache_key = entry["id"]
 
             rect = pygame.Rect(10, y_offset, self.width - 20, 28)
 
@@ -80,8 +92,16 @@ class InventoryWindow:
                 qty_surf = item.qty_surfaces[qty]                             
                 content.blit(qty_surf, (text_x + item.name_surface.get_width() + 5, rect.y + 5))
 
-            self.item_rects.append((rect, entry))
+            self.item_rects.append((rect, entry, cache_key))
             y_offset += 32
+
+
+        #for item_data in self.item_rects:
+        #    if len(item_data) == 3:
+        #        rect, entry, cache_key = item_data
+        #        print(f"[DEBUG] - cache_key: {cache_key}, entry keys: {list(entry.keys())}")
+        #    else:
+        #        print(f"[DEBUG] - OLD FORMAT (2-tuple)")
 
         close_text = self.font.render("Click outside to close", True, (160, 160, 160))
         content.blit(close_text, (10, self.height - 25))
@@ -90,14 +110,6 @@ class InventoryWindow:
 
 
     def draw(self, screen):
-
-        # --- SAFETY GUARD ---
-        # If render_cache somehow failed to build or was never built,
-        # rebuild it so we never try to blit a None surface.
-        #if self.render_cache is None:
-        #    self.rebuild_item_list()
-        # ---------------------
-
         if self.needs_rebuild:
             self.cached_inventory = [entry.copy() for entry in self.game.player.inventory]
             self.rebuild_item_list()
@@ -111,15 +123,21 @@ class InventoryWindow:
         screen.blit(self.render_cache, (x, y))
 
         mouse_pos = pygame.mouse.get_pos()
-        for rect, entry in self.item_rects:
+        for item_rect_data in self.item_rects:
+            #handle both old and new format
+            if len(item_rect_data) == 3:
+                rect, entry, cache_key = item_rect_data
+            else:
+                #old format - force rebuild
+                self.mark_dirty()
+                return
+            
             if rect.move(x, y).collidepoint(mouse_pos):
-                item = self.cached_items[entry["id"]]
+                item = self.cached_items[cache_key]
                 self.draw_tooltip(screen, item, mouse_pos)
                 break
 
-    def draw_tooltip(self, screen, item, mouse_pos):
-        
-
+    def draw_tooltip(self, screen, item, mouse_pos):        
         if not hasattr(item, "tooltip_surfaces"):
             return
 
@@ -128,52 +146,89 @@ class InventoryWindow:
         x += 16
         y += 16
 
-        width = item.tooltip_width + padding * 2
-        height = item.tooltip_height + padding * 2
+        #calculate tooltip size
+        lines = item.tooltip_text()
+        font = self.font
+
+        #calculate width and height
+        max_width = 0
+        total_height = 0
+        for line in lines:
+            if line.startswith("Level Required:"):
+                req_level = int(line.split(":")[1])
+                text = f"Requires Level: {req_level}"
+                surf = font.render(text, True, (255, 255, 255))
+            else:
+                surf = font.render(line, True, (255, 255, 255))
+
+            max_width = max(max_width, surf.get_width())
+            total_height += surf.get_height()
+
+        width = max_width + padding * 2
+        height = total_height + padding * 2
 
         if x + width > SCREEN_WIDTH:
             x = SCREEN_WIDTH - width - 5
         if y + height > SCREEN_HEIGHT:
             y = SCREEN_HEIGHT - height - 5      
 
-        pygame.draw.rect(screen, (20, 20, 20), (x, y, width + padding * 2, height + padding * 2))
-        pygame.draw.rect(screen, (180, 180, 180), (x, y, width + padding * 2, height + padding * 2), 1)
+        #draw background
+        pygame.draw.rect(screen, (20, 20, 20), (x, y, width, height))
+        pygame.draw.rect(screen, (180, 180, 180), (x, y, width, height), 1)
 
-        rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255)) #fallback
+        ry = y + padding
+        for i, line in enumerate(lines):
+            #first line is name (rarity colored)
+            if i == 0:
+                rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
+                surf = font.render(line, True, rarity_color)
+            #level equirement (color based on player level)
+            elif line.startswith("Level Required:"):
+                req_level = int(line.split(":")[1])
+                player_level = self.game.player.level
 
-        name_surf = self.font.render(item.name, True, rarity_color)
-        screen.blit(name_surf, (x + padding, y + padding))
-        
-        ry = y + padding + name_surf.get_height()
+                if player_level >= req_level:
+                    color = (100, 255, 100) #green
+                else:
+                    color = (255, 100, 100) #red
 
-        for surf in item.tooltip_surfaces[1:]:
+                text = f"Requires Level: {req_level}"
+                surf = font.render(text, True, color)
+            #normal lines
+            else:
+                surf = font.render(line, True, (255, 255, 255))
+
             screen.blit(surf, (x + padding, ry))
             ry += surf.get_height()
 
     def click(self, pos, button):
-        #import time
-
-        #t_start = time.perf_counter()
 
         offset_x = SCREEN_WIDTH // 2 - self.width // 2 + 150
         offset_y = SCREEN_HEIGHT //2 - self.height // 2
 
-        #t1 = time.perf_counter()
-        #print(f"[PERF] click - setup: {(t1 - t_start) * 1000:.2f}ms")
+ 
 
-        for rect, entry in self.item_rects:
+        for item_rect_data in self.item_rects:
+            #handle both old and new format
+            if len(item_rect_data) == 3:
+                rect, entry, cache_key = item_rect_data
+            else:
+                #old format - for rebuild
+                self.mark_dirty()
+                return False
+            
             adjusted_rect = rect.move(offset_x, offset_y)
                 
             if adjusted_rect.collidepoint(pos):
 
-                #t2 = time.perf_counter()
-                #print(f"[PERF] click - found item: {(t2 - t1) * 1000:.2f}ms")
+                #get the item
+                item = self.cached_items[cache_key]
 
-                item_id = entry["id"]
-                item = self.game.items.get(item_id)
-
-                #t3 = time.perf_counter()
-                #print(f"[PERF] click - got item: {(t3 - t2) * 1000:.2f}ms")
+                #for equipping/using, we need the item_id
+                if "item" in entry:
+                    item_id = item.id
+                else:
+                    item_id = entry["id"]
 
                 # ----------------------------------------------
                 # RIGHT-CLICK → Equip OR Use
@@ -922,6 +977,12 @@ class LevelUpWindow:
                 current_val = getattr(p.stats, stat)
                 setattr(p.stats, stat, current_val + amount)
                 p.stat_points -= amount
+
+                #update base value so gear bonsues work correctly
+                base_stat_name = f"base_{stat}"
+                if hasattr(p.stats, base_stat_name):
+                    current_base = getattr(p.stats, base_stat_name)
+                    setattr(p.stats, base_stat_name, current_base + amount)
 
         #recalculate derived stats
         p.stats.recalc_stats()

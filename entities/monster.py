@@ -318,6 +318,38 @@ class Monster:
                 "tooltip": tooltip_lines
             }
 
+            #TODO (potentially clean this up later?)
+
+            # ----------------------------------------------------
+            # WOLF HOWL HANDLING
+            # ----------------------------------------------------
+            if ability_name == "wolf_howl":
+                entry["icon"] = "wolf_howl"
+
+            # ----------------------------------------------------
+            # BONE SHIELD HANDLING
+            # ----------------------------------------------------
+            if ability_name == "bone_shield":
+                entry["icon"] = "bone_shield"
+
+            # ----------------------------------------------------
+            # GOBLIN FERVOR HANDLING
+            # ----------------------------------------------------
+            if ability_name == "goblin_fervor":
+                entry["icon"] = "goblin_fervor"
+
+            # ----------------------------------------------------
+            # ENRAGE HANDLING
+            # ----------------------------------------------------
+            if ability_name == "enrage":
+                entry["icon"] = "enrage"
+
+            # ----------------------------------------------------
+            # WEB WRAP HANDLING (icon + special UI)
+            # ----------------------------------------------------
+            if ability_name == "web_wrap":
+                entry["icon"] = "web_wrap"
+
             # ----------------------------------------------------
             # SHIELD HANDLING (Bone Shield, etc.)
             # ----------------------------------------------------
@@ -398,9 +430,12 @@ class Monster:
 
                 game.combat.add_log(f"{self.name} drains you for {heal_amount} HP!")
 
+                icon = game.buff_icons.get("life_leech")
+
                 game.combat.add_floating_text(
                     f"+{heal_amount}",
                     0, 0,
                     text_type = "heal",
-                    target = "enemy"
+                    target = "enemy",
+                    icon = icon
                 )

@@ -5,8 +5,9 @@ import time
 from settings import EQUIP_SLOTS, WEAPON_SLOT
 
 class Player:
-    def __init__(self, name = "Bjorn", item_manager = None, is_player = True):
+    def __init__(self, name = "Bjorn", item_manager = None, game = None, is_player = True):
         self.name = name
+        self.game = game
         self.stats = Stats()
         self.level = 1
         self.exp = 0
@@ -54,32 +55,42 @@ class Player:
         self.game.show_levelup_window = True
 
     def add_item(self, item_id, quantity = 1):
-        #if item_id in self.inventory:
-        #    self.inventory[item_id] += quantity
-        #else:
-        #    self.inventory[item_id] = quantity
 
-        #print(f"[INVENTORY] +{quantity} {item_id} (Total: {self.inventory[item_id]})")
-        item = self.item_manager.get(item_id)
-
+        #handle gold specially
         if item_id.lower() in ("gold", "gold_coins", "gold_coins", "coins"):
             self.gold += quantity
             print(f"[INVENTORY] +{quantity} Gold Coins (Total: {self.gold})")
             return
+        
+        #get base item to check if stackable
+        base_item = self.item_manager.get(item_id)
 
-        if item.stackable:
+        if base_item.stackable:
+            #stackable items (potions, materials, etc) - use cached template, no rolling
             for entry in self.inventory:
-                if entry["id"] == item_id and entry.get("stackable", True):
+                if "id" in entry and entry["id"] == item_id and entry.get("stackable", True):
                     entry["qty"] += quantity
                     break
             else:
                 self.inventory.append({"id": item_id, "qty": quantity, "stackable": True})
+            print(f"[INVENTORY] +{quantity} {base_item.name}")
         else:
+            #non-stackable items (equipment) - roll stats for each one
             for _ in range(quantity):
-                self.inventory.append({"id": item_id, "stackable": False})
-        print(f"[INVENTORY] +{quantity} {item.name}")
-        
+                rolled_item = self.item_manager.create_item_with_rolls(item_id)
 
+                if rolled_item:                
+                    self.inventory.append({"item": rolled_item, "stackable": False})
+
+                    #show rolled armor in log for now REMOVE LATER
+                    if hasattr(rolled_item, 'rolled_armor') and rolled_item.rolled_armor:
+                        print(f"[INVENTORY] +{rolled_item.name} ({rolled_item.rolled_armor} Armor)")
+                    else:
+                        print(f"[INVENTORY] +{rolled_item.name}")
+        
+        if self.game and hasattr(self.game, 'inventory_window'):
+            self.game.inventory_window.mark_dirty()
+        
     def use_item(self, item_id, item_manager):
         #item = item_manager.get(item_id)
 
@@ -107,11 +118,11 @@ class Player:
         #reset stats back to base values
         self.stats.reset_to_base()
 
-        #add gear bonuses
-        self.apply_gear_stats()
-
         #let Stats class compute hp/mp/regen
         self.stats.recalc_stats()
+        
+        #add gear bonuses
+        self.apply_gear_stats()
 
     def equip_item(self, item):
         #attmpts to equip an item from inventory
@@ -184,15 +195,25 @@ class Player:
         #unequip whatever is in given slot
         equipped_item = self.equipment.get(slot_name)
         if equipped_item:
-            self.inventory.append({"id": equipped_item.id})
+            #add the actual Item object back to inventory (preserves rolled stats)
+            self.inventory.append({"item": equipped_item, "stackable": False})
             self.equipment[slot_name] = None
             print(f"[UNEQUIP] Removed item from {slot_name}.")
             self.recalculate_stats()
 
+            #mark inventory dirty so it updates
+            if hasattr(self, 'game') and hasattr(self.game, 'inventory_window'):
+                self.game.inventory_window.mark_dirty()
+
     def remove_from_inventory(self, item):
         #remove a single insteance of an item from inventory list
         for entry in self.inventory:
-            if entry["id"] == item.id:
+            #handle equipment (stored as Item objects)
+            if "item" in entry and entry["item"] is item:
+                self.inventory.remove(entry)
+                return
+            #handle stackable items
+            elif "id" in entry and entry["id"] == item.id:
                 self.inventory.remove(entry)
                 return
             
@@ -204,8 +225,29 @@ class Player:
 
             #armor
             if item.type == "Armor":
-                armor_value = item.armor_min
+                #use rolled armor if it exists, otherwise fall back to armor_min
+                if hasattr(item, 'rolled_armor') and item.rolled_armor is not None:
+                    armor_value = item.rolled_armor
+                else:
+                    armor_value = item.armor_min
+                
                 self.stats.armor += armor_value
+
+                #apply bonus stats from this armor piece
+                if hasattr(item, 'rolled_stats') and item.rolled_stats:
+                    for stat, value in item.rolled_stats.items():
+                        if stat == "strength":
+                            self.stats.strength += value
+                        elif stat == "dexterity":
+                            self.stats.dexterity += value
+                        elif stat == "constitution":
+                            self.stats.constitution += value
+                        elif stat == "intelligence":
+                            self.stats.intelligence += value
+                        elif stat == "max_hp":
+                            self.stats.max_hp += value
+                        elif stat == "max_mp":
+                            self.stats.max_mp += value
             
             #weapon
             if item.type == "Weapon":
