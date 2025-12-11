@@ -782,6 +782,13 @@ class LevelUpWindow:
 
         self.buttons = []
 
+        self.pending_points = {
+            "strength": 0,
+            "dexterity": 0,
+            "constitution": 0,
+            "intelligence": 0
+        }
+
     def open(self):
         self.visible = True
 
@@ -792,18 +799,20 @@ class LevelUpWindow:
         if not self.visible:
             return
 
+        #Draw background panel
         panel = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         pygame.draw.rect(panel, (30, 30, 30, 230), (0, 0, self.width, self.height))
         pygame.draw.rect(panel, (200, 200, 200), (0, 0, self.width, self.height), 2)
-
         screen.blit(panel, (self.x, self.y))
 
+        #Title
         title = self.font.render("Level Up!", True, (255, 255, 255))
         screen.blit(title, (self.x + 110, self.y + 10))
 
+        #show available points (total - pending)
         p = self.game.player
-
-        pts_text = self.font.render(f"Points: {p.stat_points}", True, (255, 255, 100))
+        available = self.get_available_points()
+        pts_text = self.font.render(f"Points: {available}", True, (255, 255, 100))
         screen.blit(pts_text, (self.x + 20, self.y + 50))
 
         labels = [
@@ -817,30 +826,52 @@ class LevelUpWindow:
         start_y = self.y + 100
 
         for label, attr in labels:
-            val = getattr(p.stats, attr)
+            #current stat value
+            current_val = getattr(p.stats, attr)
+            pending = self.pending_points[attr]
 
-            text = self.small_font.render(f"{label}: {val}", True, (255, 255, 255))
+            #show stat: "Strength: 10 → 13" if pending, or just "Strength: 10"
+            if pending > 0:
+                text = self.small_font.render(f"{label}: {current_val} to {current_val + pending}", True, (100, 255, 100))
+            else:
+                text = self.small_font.render(f"{label}: {current_val}", True, (255, 255, 255))
+            
             screen.blit(text, (self.x + 20, start_y))
 
-            plus_rect = pygame.Rect(self.x + 260, start_y - 5, 30, 30)
-            pygame.draw.rect(screen, (80, 80, 80), plus_rect)
-            pygame.draw.rect(screen, (160, 160, 160), plus_rect, 2)
+            #minus button (only show if there are pending points for this stat)
+            if pending > 0:
+                minus_rect = pygame.Rect(self.x + 220, start_y - 5, 30, 30)
+                pygame.draw.rect(screen, (80, 40, 40), minus_rect) #dark red
+                pygame.draw.rect(screen, (160, 80, 80), minus_rect, 2)
+                minus_text = self.small_font.render("-", True, (255, 255, 255))
+                screen.blit(minus_text, (minus_rect.x + 10, minus_rect.y + 2))
+                self.buttons.append((minus_rect, f"minus_{attr}"))
 
-            plus_text = self.small_font.render("+", True, (255, 255, 255))
-            screen.blit(plus_text, (plus_rect.x + 8, plus_rect.y + 4))
-
-            self.buttons.append((plus_rect, attr))
+            #plus button (only show if we have available points)
+            if available > 0:          
+                plus_rect = pygame.Rect(self.x + 260, start_y - 5, 30, 30)
+                pygame.draw.rect(screen, (40, 80, 40), plus_rect)
+                pygame.draw.rect(screen, (80, 160, 80), plus_rect, 2)
+                plus_text = self.small_font.render("+", True, (255, 255, 255))
+                screen.blit(plus_text, (plus_rect.x + 8, plus_rect.y + 4))
+                self.buttons.append((plus_rect, f"plus_{attr}"))
 
             start_y += 40
 
-        if p.stat_points == 0:
-            confirm_rect = pygame.Rect(self.x + 90, self.y + 250, 180, 30)
-            pygame.draw.rect(screen, (50, 120, 50), confirm_rect)
-            pygame.draw.rect(screen, (200, 200, 200), confirm_rect, 2)
-            confirm_text = self.small_font.render("Confirm", True, (255, 255, 255))
-            screen.blit(confirm_text, (confirm_rect.x + 50, confirm_rect.y + 5))
+        #confirm button
+        confirm_rect = pygame.Rect(self.x + 90, self.y + 250, 180, 30)
 
-            self.buttons.append((confirm_rect, "confirm"))
+        #gray out if no changes were made
+        total_pending = sum(self.pending_points.values())
+        if total_pending > 0:
+            pygame.draw.rect(screen, (50, 120, 50), confirm_rect) #green
+        else:
+            pygame.draw.rect(screen, (60, 60, 60), confirm_rect) #gray
+
+        pygame.draw.rect(screen, (200, 200, 200), confirm_rect, 2)
+        confirm_text = self.small_font.render("Confirm", True, (255, 255, 255))
+        screen.blit(confirm_text, (confirm_rect.x + 50, confirm_rect.y + 5))
+        self.buttons.append((confirm_rect, "confirm"))
 
     def handle_click(self, pos):
         p = self.game.player
@@ -848,12 +879,52 @@ class LevelUpWindow:
         for rect, action in self.buttons:
             if rect.collidepoint(pos):
 
+                #confirm button
                 if action == "confirm":
-                    p.stats.recalc_stats()
-                    self.close()
+                    #only close if ther eare pending changes to apply
+                    if sum(self.pending_points.values()) > 0:
+                        self.apply_pending_points()
+                        self.close()
                     return
                 
-                if p.stat_points > 0:
-                    setattr(p.stats, action, getattr(p.stats, action) + 1)
-                    p.stat_points -= 1
+                #plus button
+                if action.startswith("plus_"):
+                    stat = action.replace("plus_", "")
+                    available = self.get_available_points()
+
+                    if available > 0:
+                        self.pending_points[stat] += 1
                     return
+                
+                #minus button
+                if action.startswith("minus_"):
+                    stat = action.replace("minus_", "")
+
+                    if self.pending_points[stat] > 0:
+                        self.pending_points[stat] -= 1
+                    return
+                
+    def get_available_points(self):
+        #calculate how many poitns are still unallocated
+        total_pending = sum(self.pending_points.values())
+        return self.game.player.stat_points - total_pending
+    
+    def reset_pending_points(self):
+        #clear all pending allocations
+        for key in self.pending_points:
+            self.pending_points[key] = 0
+
+    def apply_pending_points(self):
+        #actually apply the pending points to player stats
+        p = self.game.player
+        for stat, amount in self.pending_points.items():
+            if amount > 0:
+                current_val = getattr(p.stats, stat)
+                setattr(p.stats, stat, current_val + amount)
+                p.stat_points -= amount
+
+        #recalculate derived stats
+        p.stats.recalc_stats()
+
+        #clear pending after applying
+        self.reset_pending_points()

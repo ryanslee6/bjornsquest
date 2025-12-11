@@ -1,6 +1,6 @@
 
 class Stats:
-    def __init__(self, hp = 100, mp = 75, strength = 5, dexterity = 5, constitution = 5, intelligence = 5, is_player = False, dodge_chance = 0.0, attack_speed = 1.8, hit_chance = None, min_damage = None, max_damage = None):
+    def __init__(self, hp = 500, mp = 75, strength = 5, dexterity = 5, constitution = 5, intelligence = 5, is_player = False, dodge_chance = 0.0, attack_speed = 1.8, hit_chance = None, min_damage = None, max_damage = None):
 
         self.strength = strength
         self.dexterity = dexterity
@@ -8,7 +8,7 @@ class Stats:
         self.intelligence = intelligence
 
         if is_player:
-            self.base_hp = 100
+            self.base_hp = 500
             self.base_mp = 75
             self.base_hit_chance = hit_chance if hit_chance is not None else 0.85
         else:

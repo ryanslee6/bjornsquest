@@ -224,7 +224,17 @@ class GameManager:
     
     def _handle_levelup_events(self, event):
         if event.button == 1:
-            self.levelup_window.handle_click(event.pos)
+
+            #check if click is inside window
+            window_rect = pygame.Rect(self.levelup_window.x, self.levelup_window.y, self.levelup_window.width, self.levelup_window.height)
+
+            if window_rect.collidepoint(event.pos):
+                #click inside window - let the window handle it
+                self.levelup_window.handle_click(event.pos)
+            else:
+                #click outside window - close it
+                self.levelup_window.close()
+
             return True
         return False
     
@@ -287,6 +297,13 @@ class GameManager:
                 self.combat.user_is_scrolling = True
 
     def _handle_combat_click(self, pos):
+        #check for level up button
+        if hasattr(self, 'levelup_button_rect') and self.levelup_button_rect.collidepoint(pos):
+            if hasattr(self, 'levelup_window'):
+                self.levelup_window.open()
+            return True
+        
+        
         #main combat buttons ("Attack", "Auto", "Spells", "Use Item", "Inventory", "Home")
         for label, rect in self.combat_buttons.items():
             if rect.collidepoint(pos):
@@ -510,6 +527,11 @@ class GameManager:
             # clear old debuffs
             self.current_monster.active_effects = []
 
+            #clear enrage visual effects
+            self.combat.enrage_flash_alpha = 0
+            if hasattr(self.current_monster, 'is_enraged'):
+                self.current_monster.is_enraged = False
+
             # clear lingering burn timers
             self.combat.active_burns = [
                 b for b in self.combat.active_burns
@@ -530,6 +552,9 @@ class GameManager:
             old_name = self.current_monster.name
             new_monster = Monster(old_name)
             new_monster.active_effects = []
+
+            #clear any lingering enrage effects from previous monster
+            self.combat.enrage_flash_alpha = 0
 
             self.current_monster = new_monster
             self.combat.current_monster = new_monster
@@ -784,16 +809,16 @@ class GameManager:
         exp_label = label_font.render("EXP", True, label_color)
         self.screen.blit(exp_label, (player_x - exp_label.get_width() - 8, exp_bar_y))
 
+        #draw level up button if poitns avaialable
+        self.draw_levelup_button()
 
+        #player sprite
         player_sprite_rect = pygame.Rect(player_x + 85, 300, 200, 180)
         if self.player.sprite:
             sprite = self.player.sprite
             sprite_x = player_sprite_rect.x + (player_sprite_rect.width - sprite.get_width()) // 2
             sprite_y = player_sprite_rect.y + (player_sprite_rect.height - sprite.get_height()) // 2
-            
-
-            
-
+                   
             offset_x = 0
             now = pygame.time.get_ticks()
             if self.combat.player_attack_anim:
@@ -1161,6 +1186,44 @@ class GameManager:
 
         if hasattr(self, "hovered_effect") and self.hovered_effect:
             self.draw_effect_tooltip(self.hovered_effect, pygame.mouse.get_pos())
+
+    def draw_levelup_button(self):
+        #draw a button to open level-up window when points are available
+        p = self.player
+
+        #calculate total availabe points (unspent + not yet confirmed)
+        total_points = p.stat_points
+
+        #only show button if player has points to spend
+        if total_points <= 0:
+            return
+        
+        #button position
+        button_width = 100
+        button_height = 40
+        button_x = 50
+        button_y = 140
+
+        button_rect = pygame.Rect(button_x, button_y, button_width, button_height)
+
+        #draw button background
+        pygame.draw.rect(self.screen, (180, 140, 20), button_rect, border_radius = 5)
+        pygame.draw.rect(self.screen, (255, 215, 0), button_rect, width = 3, border_radius = 5)
+
+        #draw text
+        font = pygame.font.Font(None, 22)
+        text = font.render(f"Level Up!", True, (255, 255, 255))
+        text_rect = text.get_rect(center = (button_rect.centerx, button_rect.centery - 5))
+        self.screen.blit(text, text_rect)
+
+        #show points count below
+        points_font = pygame.font.Font(None, 18)
+        points_text = points_font.render(f"({total_points} points)", True, (255, 215, 0))
+        points_rect = points_text.get_rect(center = (button_rect.centerx, button_rect.centery + 8))
+        self.screen.blit(points_text, points_rect)
+
+        #store rect for click detection
+        self.levelup_button_rect = button_rect
 
     def draw_effects(self, effects, start_x, start_y):
         box_size = 26
