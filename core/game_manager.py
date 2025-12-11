@@ -26,6 +26,24 @@ class GameManager:
         self.state = "title"
         self.title_image = self.load_image("bq_titlescreen.png")
         self.home_image = self.load_image("bq_campsite.png")
+        
+        #load monster select backgrounds (with fallback system)
+        self.monster_select_backgrounds = {}
+        #try to load page-specific backgrounds, fall back to default
+        for i in range(10): #supports (10 for now) pages
+            bg_name = f"mon_bg{i + 1}.png"
+            bg = self.load_image(bg_name)
+            if bg:
+                self.monster_select_backgrounds[i] = bg
+
+        #if no page-specific background exists, use default for all pages
+        if not self.monster_select_backgrounds:
+            default_bg = self.load_image("mon_bg1.png")
+            if default_bg:
+                #use efault for pages 0-9
+                for i in range(10):
+                    self.monster_select_backgrounds[i] = default_bg
+
         self.loot_system = LootSystem()
         self.items = ItemManager()
         self.inventory_window = InventoryWindow(self)
@@ -658,7 +676,13 @@ class GameManager:
 
 
     def draw_creature_select(self):
-        self.screen.fill(BLACK)
+        #draw background (page-specific or fallback)
+        bg = self.monster_select_backgrounds.get(self.current_monster_page)
+        if bg:
+            self.screen.blit(bg, (0, 0))
+        else:
+            self.screen.fill(BLACK) #ultimate fallback
+        
         title = self.font.render("Select a Monster", True, WHITE)
         self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
 
