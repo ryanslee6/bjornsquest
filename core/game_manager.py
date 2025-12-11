@@ -43,8 +43,29 @@ class GameManager:
         ABILITIES_PATH = os.path.join("data", "abilities.json")
         with open(ABILITIES_PATH, "r") as f:
             self.ability_data = json.load(f)
+
+        self.load_ability_icons()
         
-        #TODO (potentially clean this up later?)
+    def load_ability_icons(self):
+        #load all ability icons defined in abilities.json
+        abilities_path = os.path.join("data", "abilities.json")
+
+        try:
+            with open(abilities_path, "r") as f:
+                abilities = json.load(f)
+
+            for ability_id, ability_data in abilities.items():
+                icon_filename = ability_data.get("icon")
+                if icon_filename:
+                    icon_path = os.path.join("assets", "images", icon_filename)
+                    if os.path.exists(icon_path):
+                        img = pygame.image.load(icon_path). convert_alpha()
+                        img = pygame.transform.scale(img, (26, 26))
+                        self.buff_icons[ability_id] = img
+                    else:
+                        print(f"[WARNING] Icon missing for {ability_id}: {icon_path}")
+        except FileNotFoundError:
+            print("[WARNING] abilities.json not found - no abilitiy icons loaded")
         
         def load_icon(name, filename):
             path = os.path.join("assets", "images", filename)
@@ -56,13 +77,7 @@ class GameManager:
                 print(f"[WARNING] Buff icon missing: {path}")
         
         load_icon("burn", "burn_debuff1.png")
-        load_icon("poison", "poison_debuff1.png")
-        load_icon("web_wrap", "web_debuff1.png")
-        load_icon("enrage", "spider_enrage.png")
-        load_icon("goblin_fervor", "goblin_fervor.png")
-        load_icon("bone_shield", "bone_shield.png")
-        load_icon("wolf_howl", "wolf_howl.png")
-        load_icon("life_leech", "life_leech.png")      
+        load_icon("poison", "poison_debuff1.png")      
 
         self.combat_bg = pygame.image.load("assets/images/combat_bg1.png").convert_alpha()
         self.combat_bg = pygame.transform.scale(self.combat_bg, (SCREEN_WIDTH, SCREEN_HEIGHT - 52))
@@ -203,14 +218,15 @@ class GameManager:
                     return
 
     def _handle_inventory_events(self, event):
-
-        #if event.button == 3:
-        #    start = time.perf_counter()
-        #    result = self.inventory_window.click(event.pos, event.button)
-        #    elapsed = (time.perf_counter() - start) * 1000
-        #    print(f"[PERF] inventory click handler: {elapsed:.2f}ms")
-        #    return result
-
+        #mouse wheel scrolling
+        if event.button == 4: #scroll up
+            self.inventory_window.scroll_offset = max(0, self.inventory_window.scroll_offset - self.inventory_window.scroll_speed)
+            return True
+        
+        if event.button == 5: #scroll down
+            self.inventory_window.scroll_offset = min(self.inventory_window.max_scroll, self.inventory_window.scroll_offset + self.inventory_window.scroll_speed)
+            return True
+        
         #right click uses item
         if event.button == 3 and self.inventory_window.click(event.pos, event.button):
             return True

@@ -120,7 +120,7 @@ class Player:
 
         #let Stats class compute hp/mp/regen
         self.stats.recalc_stats()
-        
+
         #add gear bonuses
         self.apply_gear_stats()
 
@@ -393,7 +393,7 @@ class Player:
             total += self.inventory.get("gold_coins", 0)
         else:
             for entry in self.inventory:
-                if entry["id"] == "gold_coins":
+                if "id" in entry and entry["id"] == "gold_coins":
                     total += entry.get("qty", 1)
         return total
     

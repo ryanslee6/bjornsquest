@@ -14,6 +14,10 @@ class InventoryWindow:
         self.text_color = (255, 255, 255)
         self.font = pygame.font.Font(None, 22)
 
+        self.scroll_offset = 0
+        self.max_scroll = 0
+        self.scroll_speed = 32
+
         self.item_rects = []
 
         self.panel_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
@@ -34,17 +38,9 @@ class InventoryWindow:
         self.cached_inventory = None
 
     def rebuild_item_list(self):
-        #create a surface for the inventory content (not panel)
-        content = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
 
-        title = self.font.render("Inventory", True, self.text_color)
-        content.blit(title, (10, 10))
-
-        gold_text = self.font.render(f"Gold: {self.game.player.gold}", True, (255, 215, 0))
-        content.blit(gold_text, (self.width - gold_text.get_width() - 20, 10))
-
+        #clear old item_rects
         self.item_rects = []
-        y_offset = 40
 
         #build cache - handle both stackable id and equipment
         self.cached_items = {}
@@ -59,6 +55,10 @@ class InventoryWindow:
                 item_id = entry["id"]
                 self.cached_items[item_id] = self.game.items.get(item_id)
 
+        #build item rectangles (position only, no drawing)
+        entry_height = 32
+        y_offset = 40
+
         for entry in self.game.player.inventory:
             #get the item (handle both formats)
             if "item" in entry:
@@ -68,46 +68,14 @@ class InventoryWindow:
                 item = self.cached_items[entry["id"]]
                 cache_key = entry["id"]
 
-            rect = pygame.Rect(10, y_offset, self.width - 20, 28)
-
-            pygame.draw.rect(content, (60, 60, 60), rect)
-            pygame.draw.rect(content, (120, 120, 120), rect, 1)
-
-            if item.icon_small:
-                content.blit(item.icon_small, (rect.x + 5, rect.y + 2))
-                text_x = rect.x + 34
-            else:
-                text_x = rect.x + 5
-
-            content.blit(item.name_surface, (text_x, rect.y + 5))
-
-            if item.stackable:
-                qty = entry["qty"]
-
-                rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
-                
-                if qty not in item.qty_surfaces:
-                    item.qty_surfaces[qty] = self.font.render(f"x{qty}", True, rarity_color)
-
-                qty_surf = item.qty_surfaces[qty]                             
-                content.blit(qty_surf, (text_x + item.name_surface.get_width() + 5, rect.y + 5))
-
+            rect = pygame.Rect(10, y_offset, self.width - 40, 28)
             self.item_rects.append((rect, entry, cache_key))
-            y_offset += 32
+            y_offset += entry_height
 
-
-        #for item_data in self.item_rects:
-        #    if len(item_data) == 3:
-        #        rect, entry, cache_key = item_data
-        #        print(f"[DEBUG] - cache_key: {cache_key}, entry keys: {list(entry.keys())}")
-        #    else:
-        #        print(f"[DEBUG] - OLD FORMAT (2-tuple)")
-
-        close_text = self.font.render("Click outside to close", True, (160, 160, 160))
-        content.blit(close_text, (10, self.height - 25))
-
-        self.render_cache = content
-
+        #calculate max scroll
+        total_height = len(self.game.player.inventory) * entry_height
+        visible_height = self.height - 70 #space between header and footer
+        self.max_scroll = max(0, total_height - visible_height)
 
     def draw(self, screen):
         if self.needs_rebuild:
@@ -119,9 +87,34 @@ class InventoryWindow:
         x = SCREEN_WIDTH // 2 - self.width // 2 + offset_x
         y = SCREEN_HEIGHT // 2 - self.height // 2
 
+        #draw panel background
         screen.blit(self.panel_surface, (x, y))
-        screen.blit(self.render_cache, (x, y))
 
+        #draw fixed header (title and gold) - not scrolled
+        title = self.font.render("Inventory", True, self.text_color)
+        screen.blit(title, (x + 10, y + 10))
+
+        gold_text = self.font.render(f"Gold: {self.game.player.gold}", True, (255, 215, 0))
+        screen.blit(gold_text, (x + self.width - gold_text.get_width() - 20, y + 10))
+        
+        #set up clipping area for scrollable content
+        content_area = pygame.Rect(x, y + 40, self.width - 20, self.height - 70)
+        screen.set_clip(content_area)
+
+        #draw scrollable items
+        self._draw_scrollable_items(screen, x, y)
+
+        screen.set_clip(None)
+
+        #draw fixed foot (close text) - not scrolled
+        close_text = self.font.render("Click outside to close", True, (160, 160, 160))
+        screen.blit(close_text, (x + 10, y + self.height - 25))
+
+        #draw scrollbar if needed
+        if self.max_scroll > 0:
+            self._draw_scrollbar(screen, x, y)
+
+        #handle tooltip
         mouse_pos = pygame.mouse.get_pos()
         for item_rect_data in self.item_rects:
             #handle both old and new format
@@ -132,7 +125,11 @@ class InventoryWindow:
                 self.mark_dirty()
                 return
             
-            if rect.move(x, y).collidepoint(mouse_pos):
+            #adjust rect for scroll offset
+            adjusted_rect = rect.move(x, y - self.scroll_offset)
+            
+            #only show tooltip if item is visible in the clipped area
+            if content_area.colliderect(adjusted_rect) and adjusted_rect.collidepoint(mouse_pos):
                 item = self.cached_items[cache_key]
                 self.draw_tooltip(screen, item, mouse_pos)
                 break
@@ -217,7 +214,7 @@ class InventoryWindow:
                 self.mark_dirty()
                 return False
             
-            adjusted_rect = rect.move(offset_x, offset_y)
+            adjusted_rect = rect.move(offset_x, offset_y - self.scroll_offset)
                 
             if adjusted_rect.collidepoint(pos):
 
@@ -272,6 +269,79 @@ class InventoryWindow:
         y = SCREEN_HEIGHT // 2 - self.height // 2
         rect = pygame.Rect(x, y, self.width, self.height)
         return not rect.collidepoint(pos)
+    
+    def _draw_scrollbar(self, screen, window_x, window_y):
+        #Draw scrollbar on the right side of the inventory
+        track_x = window_x + self.width - 14
+        track_y = window_y + 40
+        track_height = self.height - 70
+        track_rect = pygame.Rect(track_x, track_y, 8, track_height)
+
+        pygame.draw.rect(screen, (50, 50, 50), track_rect)
+
+        #calculate thumb size and position
+        visible_height = self.height - 70
+        entry_height = 32
+        total_height = len(self.game.player.inventory) * entry_height
+
+        thumb_height = max(20, int((visible_height / total_height) * track_height))
+
+        if self.max_scroll > 0:
+            scroll_ratio = self.scroll_offset / self.max_scroll
+        else:
+            scroll_ratio = 0
+
+        thumb_y = track_y + int(scroll_ratio * (track_height - thumb_height))
+        thumb_rect = pygame.Rect(track_x, thumb_y, 8, thumb_height)
+
+        pygame.draw.rect(screen, (160, 160, 160), thumb_rect)
+
+    def _draw_scrollable_items(self, screen, window_x, window_y):
+        #draw just the scrollable item list
+        y_start = 40 #start after the header
+
+        for item_rect_data in self.item_rects:
+            if len(item_rect_data) != 3:
+                continue
+
+            rect, entry, cache_key = item_rect_data
+            item = self.cached_items[cache_key]
+
+            #apply scroll offset
+            draw_y = window_y + rect.y - self.scroll_offset
+
+            #skip if outside visible area
+            if draw_y + rect.height < window_y + 40: #above visible
+                continue
+            if draw_y > window_y + self.height - 30: #below visible
+                continue
+
+            #draw item background
+            draw_rect = pygame.Rect(window_x + rect.x, draw_y, rect.width, rect.height)
+            pygame.draw.rect(screen, (60, 60, 60), draw_rect)
+            pygame.draw.rect(screen, (120, 120, 120), draw_rect, 1)
+
+            #draw icon
+            if item.icon_small:
+                screen.blit(item.icon_small, (draw_rect.x + 5, draw_rect.y + 2))
+                text_x = draw_rect.x +34
+            else:
+                text_x = draw_rect.x + 5
+
+            #draw name
+            screen.blit(item.name_surface, (text_x, draw_rect.y + 5))
+
+            #draw quantity if stackable
+            if item.stackable:
+                qty = entry["qty"]
+                rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
+
+                if qty not in item.qty_surfaces:
+                    item.qty_surfaces[qty] = self.font.render(f"x{qty}", True, rarity_color)
+
+                qty_surf = item.qty_surfaces[qty]
+                screen.blit(qty_surf, (text_x + item.name_surface.get_width() + 5, draw_rect.y + 5))
+
     
 class VendorWindow:
     def __init__(self, game):
