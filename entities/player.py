@@ -92,15 +92,12 @@ class Player:
             self.game.inventory_window.mark_dirty()
         
     def use_item(self, item_id, item_manager):
-        #item = item_manager.get(item_id)
-
-        #item.use(self)
-
-        #if item.stackable:
-        #    self.inventory[item_id] -= 1
-        #    if self.inventory[item_id] <= 0:
-        #        del self.inventory[item_id]
         for entry in self.inventory:
+
+            #ignore any malformed / non-item entries
+            if "id" not in entry:
+                continue
+            
             if entry["id"] == item_id:
                 item = item_manager.get(item_id)
                 item.use(self)
@@ -387,31 +384,16 @@ class Player:
         return exp_into_level, exp_needed
     
     def get_total_gold(self):
-        #returns players total gold based on gold coins in inventory
-        total = self.gold
-        if isinstance(self.inventory, dict):
-            total += self.inventory.get("gold_coins", 0)
-        else:
-            for entry in self.inventory:
-                if "id" in entry and entry["id"] == "gold_coins":
-                    total += entry.get("qty", 1)
-        return total
+        return self.gold
     
     def spend_gold(self, amount):
-        remaining = amount
-
-        for entry in self.inventory:
-            if entry["id"] == "gold_coins":
-                if entry["qty"] >= remaining:
-                    entry["qty"] -= remaining
-                    remaining = 0
-                else:
-                    remaining -= entry["qty"]
-                    entry["qty"] = 0
-                break
-        
-        if remaining > 0:
-            self.gold = max(0, self.gold - remaining)
+        if self.gold >= amount:
+            self.gold -= amount
+            print(f"[GOLD] Spent {amount}, new total - {self.gold}")
+            return True
+        else:
+            print(f"[GOLD] Not enough gold! Have {self.gold}, need {amount}")
+            return False
 
     def add_status_effect(self, name, duration, icon = None, color = (200, 200, 200)):
         if not hasattr(self, "active_effects"):

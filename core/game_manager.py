@@ -187,7 +187,7 @@ class GameManager:
         # --- GLOBAL MODAL WINDOWS / OVERLAYS FIRST ---
         
         # Inventorw window captures all mouse input when open
-        if self.show_inventory and event.type == pygame.MOUSEBUTTONDOWN:
+        if self.show_inventory and event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
             if self._handle_inventory_events(event):
                 return
             
@@ -237,24 +237,37 @@ class GameManager:
 
     def _handle_inventory_events(self, event):
         #mouse wheel scrolling
-        if event.button == 4: #scroll up
-            self.inventory_window.scroll_offset = max(0, self.inventory_window.scroll_offset - self.inventory_window.scroll_speed)
-            return True
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 4: #scroll up
+                self.inventory_window.scroll_offset = max(0, self.inventory_window.scroll_offset - self.inventory_window.scroll_speed)
+                return True
+            
+            if event.button == 5: #scroll down
+                self.inventory_window.scroll_offset = min(self.inventory_window.max_scroll, self.inventory_window.scroll_offset + self.inventory_window.scroll_speed)
+                return True
+            
+            #left click down - start drag or handle click
+            if event.button == 1:
+                #check if click is outside (close inventory)
+                if self.inventory_window.click_outside(event.pos):
+                    self.show_inventory = False
+                    return True
+                
+                #click inside - start drag
+                self.inventory_window.click(event.pos, event.button)
+                return True
+
+            #right click uses item
+            if event.button == 3:
+                self.inventory_window.click(event.pos, event.button)
+                return True
         
-        if event.button == 5: #scroll down
-            self.inventory_window.scroll_offset = min(self.inventory_window.max_scroll, self.inventory_window.scroll_offset + self.inventory_window.scroll_speed)
-            return True
+        if event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1: #left click released
+                if self.inventory_window.dragging_item:
+                    self.inventory_window.release_drag(event.pos)
+                    return True
         
-        #right click uses item
-        if event.button == 3 and self.inventory_window.click(event.pos, event.button):
-            return True
-        
-        #left click outside closes inventory
-        if event.button == 1 and self.inventory_window.click_outside(event.pos):
-            self.show_inventory = False
-            return True
-        
-        #left click inside does nothing, but still consume the event
         return True
 
     def _handle_character_window_events(self, event):
