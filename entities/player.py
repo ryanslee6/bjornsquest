@@ -19,6 +19,8 @@ class Player:
         self.auto_combat_unlocked = False
         self.is_poison_protected = False
 
+        self.enhancement_scroll = None #currently selected scroll for enhancement
+
         self.current_shield = 0
         self.max_shield = 0
 
@@ -92,6 +94,23 @@ class Player:
             self.game.inventory_window.mark_dirty()
         
     def use_item(self, item_id, item_manager):
+
+        #first check if its a scroll
+        item = item_manager.get(item_id)
+
+        print(f"[DEBUG] use_item called for: {item_id}")
+        print(f"[DEBUG] Item object: {item}")
+        print(f"[DEBUG] Has subtype? {hasattr(item, 'subtype')}")
+        if hasattr(item, 'subtype'):
+            print(f"[DEBUG] Subtype value: {item.subtype}")
+
+        #enhancement scrolls enter selection mode instead of immediate use
+        if item and hasattr(item, 'subtype') and item.subtype == "enhancement_scroll":
+            self.start_enhancement_mode(item)
+            return #dont consume yet - wait for player to select target item
+        
+        print("[DEBUG] Not a scroll, proceeding with regular consumable logic")
+        #regular consumable handling
         for entry in self.inventory:
 
             #ignore any malformed / non-item entries
@@ -233,24 +252,56 @@ class Player:
                 #apply bonus stats from this armor piece
                 if hasattr(item, 'rolled_stats') and item.rolled_stats:
                     for stat, value in item.rolled_stats.items():
-                        if stat == "strength":
-                            self.stats.strength += value
-                        elif stat == "dexterity":
-                            self.stats.dexterity += value
-                        elif stat == "constitution":
-                            self.stats.constitution += value
-                        elif stat == "intelligence":
-                            self.stats.intelligence += value
-                        elif stat == "max_hp":
-                            self.stats.max_hp += value
-                        elif stat == "max_mp":
-                            self.stats.max_mp += value
+                        self._apply_stat_bonus(stat, value)
+
+                #apply enhancements from scrolls
+                if hasattr(item, 'enhancements') and item.enhancements:
+                    for enhancement in item.enhancements:
+                        stat = enhancement["stat"]
+                        value = enhancement["value"]
+                        self._apply_stat_bonus(stat, value)
             
             #weapon
             if item.type == "Weapon":
                 self.stats.min_damage = item.min_dmg
                 self.stats.max_damage = item.max_dmg
                 self.stats.attack_speed = item.attack_speed
+
+                #apply bonus stats from rolling
+                if hasattr(item, 'rolled_stats') and item.rolled_stats:
+                    for stat, value in item.rolled_stats.items():
+                        self._apply_stat_bonus(stat, value)
+
+                #apply enhancements from scrolls
+                if hasattr(item, 'enhancements') and item.enhancements:
+                    for enhancement in item.enhancements:
+                        stat = enhancement["stat"]
+                        value = enhancement["value"]
+                        self._apply_stat_bonus(stat, value)
+
+    def _apply_stat_bonus(self, stat, value):
+        #helper method to apply a stat bonus from equipment
+        if stat == "strength":
+            self.stats.strength += value
+        elif stat == "dexterity":
+            self.stats.dexterity += value
+        elif stat == "constitution":
+            self.stats.constitution += value
+        elif stat == "intelligence":
+            self.stats.intelligence += value
+        elif stat == "max_hp":
+            self.stats.max_hp += value
+        elif stat == "max_mp":
+            self.stats.max_mp += value
+        elif stat == "attack":
+            self.stats.min_damage += value
+            self.stats.max_damage += value
+        elif stat == "armor":
+            self.stats.armor += value
+        elif stat == "crit_chance":
+            self.stats.base_crit_chance += value
+        elif stat == "attack_speed":
+            self.stats.attack_speed += value
                  
 
     def print_inventory(self):
@@ -422,3 +473,99 @@ class Player:
                     print("[EFFECT] Anti-poison protection expired.")
 
         self.active_effects = new_list
+
+    def start_enhancement_mode(self, scroll):
+        #enter scroll selection mode - player muyse select an item to enhance
+        self.enhancement_scroll = scroll
+        print(f"[ENHANCE] Selected scroll: {scroll.name}")
+        print(f"[ENHANCE] Target type: {scroll.target_type}, Stat: {scroll.stat_to_enhance} +{scroll.stat_bonus}")
+        
+    def can_enhance_item(self, item, scroll):
+        #check if an item can be enhanced with this scroll
+        #must be equipment
+        if item.type not in ("Weapon", "Armor", "Accessory"):
+            return False, "This item cannot be enhanced."
+        
+        #must match scroll target type:
+        if item.type != scroll.target_type:
+            return False, f"This scroll can only be used on {scroll.target_type}s."
+        
+        #must have enhancement slots
+        if item.enhancement_slots == 0:
+            return False, "This item cannot be enhanced."
+        
+        #must have available slots
+        if item.used_slots >= item.enhancement_slots:
+            return False, "This item has no remaining enhancement slots."
+        
+        return True, ""
+    
+    def apply_enhancement(self, scroll, target_item):
+        #attempt to enhance an item with a scroll
+        import random
+
+        #validate
+        can_enhance, error_msg = self.can_enhance_item(target_item, scroll)
+        if not can_enhance:
+            print(f"[ENHANCE] Cannot enhance: {error_msg}")
+            return {"success": False, "message": error_msg, "item_destroyed": False}
+        
+        #consume the scroll
+        self.use_item(scroll.id, self.game.items)
+
+        #roll for success
+        roll = random.random()
+        success = roll <= scroll.success_chance
+
+        #increment used slots regardless of success
+        target_item.used_slots += 1
+
+        if success:
+            #apply enhancement
+            enhancement = {
+                "stat": scroll.stat_to_enhance,
+                "value": scroll.stat_bonus
+            }
+            target_item.enhancements.append(enhancement)
+
+            print(f"[ENHANCE] SUCCESS! +{scroll.stat_bonus} {scroll.stat_to_enhance}")
+
+            #recalculate stats if item is equipped
+            if target_item in self.equipment.values():
+                self.recalculate_stats()
+
+            return {
+                "success": True,
+                "message": f"Success! +{scroll.stat_bonus} {scroll.stat_to_enhance.replace('_', ' ').title()}",
+                "item_destroyed": False
+            }
+        else:
+            #failed
+            print(f"[ENHANCE] FAILED! Slots remaining: {target_item.enhancement_slots - target_item.used_slots}")
+
+            #check for item destruction
+            item_destroyed = False
+            if not scroll.is_safe_scroll:
+                #boom scroll has 50% chance to destroy item on failure
+                boom_roll = random.random()
+                if boom_roll < 0.5:
+                    item_destroyed = True
+                    #remove item from inventory
+                    self.remove_from_inventory(target_item)
+                    print(f"[ENHANCE] BOOM! Item destroyed!")
+
+            slots_left = target_item.enhancement_slots - target_item.used_slots
+
+            if item_destroyed:
+                return {
+                    "success": False,
+                    "message": f"Enhancement failed. {slots_left} slot(s) remaining.",
+                    "item_destroyed": True
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Enhancement failed. {slots_left} slot(s) remaining.",
+                    "item_destroyed": False
+                }
+                

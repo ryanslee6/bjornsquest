@@ -48,6 +48,8 @@ class GameManager:
         self.items = ItemManager()
         self.inventory_window = InventoryWindow(self)
         self.levelup_window = LevelUpWindow(self)
+        self.enhancement_confirmation = EnhancementConfirmationWindow(self)
+        self.enhancement_result_window = None
         self.show_inventory = False
         self.show_spell_bar = False
         self.spell_buttons = {}
@@ -236,6 +238,12 @@ class GameManager:
                     return
 
     def _handle_inventory_events(self, event):
+        #enhancement confirmation takes priority
+        if self.enhancement_confirmation.visible and event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1: #left click
+                if self.enhancement_confirmation.click(event.pos):
+                    return True
+
         #mouse wheel scrolling
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 4: #scroll up
@@ -494,6 +502,16 @@ class GameManager:
                 return True
         return False
 
+    def show_enhancement_confirmation(self, scroll, item):
+        #show the enhancement confirmation dialog
+        self.enhancement_confirmation.show(scroll, item)
+
+    def show_enhancement_result(self, result):
+        #show results of enhancement attempts
+        print(f"[ENHANCE RESULT] {result['message']}")
+        if result.get('item_destroyed'):
+            print('[ENHANCE RESULT] Item was Destroyed!')
+
     def update(self, dt):
         #self.combat.update_burns(dt) #moved down to bottom with rest of updates
         if self.state == "combat":
@@ -686,6 +704,10 @@ class GameManager:
 
         if self.show_inventory:
             self.inventory_window.draw(self.screen)
+
+        #draw enhancement confirmation
+        if self.enhancement_confirmation.visible:
+            self.enhancement_confirmation.draw(self.screen)
 
 
     def draw_creature_select(self):
@@ -1135,6 +1157,12 @@ class GameManager:
         #inventory
         if self.show_inventory:
             self.inventory_window.draw(self.screen)
+
+        #draw enhancement confirmation on top of everything
+        #print(f"[DEBUG] Checking enhancement dialog: visible={self.enhancement_confirmation.visible}, scroll={self.enhancement_confirmation.scroll}, target={self.enhancement_confirmation.target_item}")
+        if self.enhancement_confirmation.visible:
+            #print("[DEBUG] About to draw enhancement confirmation!")
+            self.enhancement_confirmation.draw(self.screen)
 
         hovered_spell = None
         hover_mouse_pos = None

@@ -81,7 +81,10 @@ class ItemManager:
         #Not cached - create it
         data = self.item_data[item_id]
 
-        if data.get("type") == "consumable":
+        #create appropriate item type
+        #enhancement scrolls are consumables but need to be Item objects
+
+        if data.get("type") == "consumable" and data.get("subtype") != "enhancement_scroll":
             item = ConsumableItem(item_id, data)
         else:
             item = Item(item_id, data)

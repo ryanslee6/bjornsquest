@@ -12,6 +12,7 @@ class Item:
         self.description = data.get("description", "")
         self.rarity = data.get("rarity", "common")
         self.stackable = data.get("stackable", True)
+        self.subtype = data.get("subtype", None)
         
         #--Equipment Fields--
         #Armor
@@ -29,6 +30,17 @@ class Item:
         #other equipment fields
         self.required_level = data.get("required_level", 1)
         self.enhancement_slots = data.get("enhancement_slots", 0)
+
+        #enhancement tracking
+        self.enhancements = []
+        self.used_slots = 0
+
+        #enhancement scroll fields
+        self.target_type = data.get("target_type", None) #weapon, armor, accessories
+        self.success_chance = data.get("success_chance", 0)
+        self.stat_to_enhance = data.get("stat", None)
+        self.stat_bonus = data.get("stat_bonus", 0)
+        self.is_safe_scroll = data.get("safe", True)
 
         #rolled stats (actual values for this specific item)
         if rolled_stats:
@@ -56,19 +68,62 @@ class Item:
             f"Type: {self.type.title()}",
         ]
 
+        #Weapon stats
+        if self.type == "Weapon":
+            #base damage
+            base_damage = f"{self.min_dmg}-{self.max_dmg}"
+            lines.append(f"Damage: {base_damage}")
+
+            #attack speed
+            lines.append(f"Attack Speed: {self.attack_speed:.1f}s")
+
+            #weapon type
+            if hasattr(self, 'weapon_type') and self.weapon_type:
+                lines.append(f"Weapon Type: {self.weapon_type}")
+
+            #hands required
+            if hasattr(self, 'hands'):
+                hands_text = "Two-Handed" if self.hands == 2 else "One-Handed"
+                lines.append(hands_text)
+
+        #Armor stats
+        if self.type == "Armor":
+            #show rolled armor value if it exists
+            if hasattr(self, 'rolled_armor') and self.rolled_armor is not None:
+                lines.append(f"Armor: {self.rolled_armor}")
+            elif hasattr(self, 'armor_min') and self.armor_max > 0:
+                lines.append(f"Armor: {self.armor_min}-{self.armor_max}")
+
+            #armor type
+            if hasattr(self, 'armor_type') and self.armor_type:
+                lines.append(f"Armor Type: {self.armor_type}")
+
+
         #show level requirement (will be colored in rendering)
         if hasattr(self, 'required_level') and self.required_level > 1:
             lines.append(f"Level Required: {self.required_level}")
 
-        #show rolled armor value if it exists
-        if hasattr(self, 'rolled_armor') and self.rolled_armor is not None:
-            lines.append(f"Armor: {self.rolled_armor}")
-
         #show bonus stats if they exist
         if hasattr(self, 'rolled_stats') and self.rolled_stats:
             for stat, value in self.rolled_stats.items():
+                stat_display = stat.replace("_", " ").title()
                 if value > 0:
-                    lines.append(f"+{value} {stat.title()}")
+                    lines.append(f"ROLLED:+{value} {stat_display}")
+
+        #enhancements
+        if hasattr(self, 'enhancements') and self.enhancements:
+            for enhancement in self.enhancements:
+                stat = enhancement["stat"].replace("_", " ").title()
+                value = enhancement["value"]
+                lines.append(f"ENHANCED:+{value} {stat}")
+
+        #enhancement slots remaining
+        if hasattr(self, 'enhancement_slots') and self.enhancement_slots > 0:
+            remaining = self.enhancement_slots - (self.used_slots if hasattr(self, 'used_slots') else 0)
+            if remaining > 0:
+                lines.append(f"SLOTS:{remaining}/{self.enhancement_slots}")
+            else:
+                lines.append(f"SLOTS:0/{self.enhancement_slots}")
 
         if self.description:
             lines.append(self.description)

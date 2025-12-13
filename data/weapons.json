@@ -9,7 +9,7 @@
         "attack_speed": 2.6,
         "description": "A 2 handed axe used by beginners during training",
         "rarity": "common",
-        "enhancement_slots": 1,
+        "enhancement_slots": 3,
         "required_level": 1,
         "stackable": false
     },
@@ -23,7 +23,7 @@
         "attack_speed": 1.9,
         "description": "A basic sword used by beginners during training",
         "rarity": "common",
-        "enhancement_slots": 1,
+        "enhancement_slots": 3,
         "required_level": 1,
         "stackable": false
     }

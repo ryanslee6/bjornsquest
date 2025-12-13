@@ -67,7 +67,7 @@
         "armor_max": 6,
         "description": "A crude piece of goblin armor",
         "rarity": "uncommon",
-        "enhancement_slots": 2,
+        "enhancement_slots": 4,
         "required_level": 2,
         "stackable": false,
         "possible_bonus_stats": {

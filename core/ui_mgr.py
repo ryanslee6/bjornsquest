@@ -202,6 +202,8 @@ class InventoryWindow:
         max_width = 0
         total_height = 0
         for line in lines:
+            #strip color markers for width calculation
+            display_line = line.replace("ROLLED:", "").replace("ENHANCED:", "").replace("SLOTS:", "")
             if line.startswith("Level Required:"):
                 req_level = int(line.split(":")[1])
                 text = f"Requires Level: {req_level}"
@@ -242,6 +244,22 @@ class InventoryWindow:
 
                 text = f"Requires Level: {req_level}"
                 surf = font.render(text, True, color)
+
+            #rolled stats (green)
+            elif line.startswith("ROLLED:"):
+                display_text = line.replace("ROLLED:", "")
+                surf = font.render(display_text, True, (100, 255, 100)) #green
+
+            #enhancements
+            elif line.startswith("ENHANCED:"):
+                display_text = line.replace("ENHANCED:", "")
+                surf = font.render(display_text, True, (100, 200, 255)) #cyan
+
+            #enhancement slots
+            elif line.startswith("SLOTS:"):
+                display_text = line.replace("SLOTS:", "Slots: ")
+                surf = font.render(display_text, True, (255, 215, 0)) #gold
+            
             #normal lines
             else:
                 surf = font.render(line, True, (255, 255, 255))
@@ -309,9 +327,32 @@ class InventoryWindow:
                             self.mark_dirty()
                             return True
                 # ----------------------------------------------
-                # LEFT-CLICK → Start drag
+                # LEFT-CLICK → Start drag or apply scroll
                 # ----------------------------------------------
                 if button == 1:
+
+                    #check if player has a scroll selected (enhancement mode)
+                    if self.game.player.enhancement_scroll:
+                        scroll = self.game.player.enhancement_scroll
+
+                        print(f"[DEBUG] In enhancement mode, clicked on: {item.name}")
+
+                        #check if this item can be enhanced
+                        can_enhance, error_msg = self.game.player.can_enhance_item(item, scroll)
+
+                        print(f"[DEBUG] Can enhance? {can_enhance}, Error: {error_msg}")
+
+                        if can_enhance:
+                            #show confirmation dialog
+                            print("[DEBUG] Showing confirmation dialog")
+                            self.game.show_enhancement_confirmation(scroll, item)
+                            return True
+                        else:
+                            #show error message
+                            print(f"[ENHANCE] {error_msg}")
+                            return True
+                        
+                    #normal drag behavior
                     self.dragging_item = (rect, entry, cache_key)
                     self.drag_start_index = i
                     #calculate offset from mouse to rect top-left
@@ -325,6 +366,12 @@ class InventoryWindow:
                     print(f"[DRAG START] Actual inventory[{i}]: {actual_item_at_index}")
                     print(f"[DRAG START] Match? {actual_item_at_index == entry}")
                     return True
+                
+        #clicked outside any item - clear enhancement mode if active
+        if self.game.player.enhancement_scroll:
+            print("[ENHANCE] Cancelled - clicked outside items")
+            self.game.player.enhancement_scroll = None
+            self.mark_dirty()
 
                     
         return False
@@ -434,10 +481,23 @@ class InventoryWindow:
             if draw_y > window_y + self.height - 30: #below visible
                 continue
 
+            #check if this item is eligible for enhancement
+            is_eligible = False
+            if self.game.player.enhancement_scroll:
+                can_enhance, _ = self.game.player.can_enhance_item(item, self.game.player.enhancement_scroll)
+                is_eligible = can_enhance
+
             #draw item background
             draw_rect = pygame.Rect(window_x + rect.x, draw_y, rect.width, rect.height)
-            pygame.draw.rect(screen, (60, 60, 60), draw_rect)
-            pygame.draw.rect(screen, (120, 120, 120), draw_rect, 1)
+            
+            if is_eligible:
+                #green background for eligible items
+                pygame.draw.rect(screen, (40, 80, 40), draw_rect)
+                pygame.draw.rect(screen, (80, 200, 80), draw_rect, 2)
+            else:
+                #normal background
+                pygame.draw.rect(screen, (60, 60, 60), draw_rect)
+                pygame.draw.rect(screen, (120, 120, 120), draw_rect, 1)
 
             #draw icon
             if item.icon_small:
@@ -482,10 +542,13 @@ class VendorWindow:
         self.y = SCREEN_HEIGHT // 2 - self.height // 2
 
         self.items_for_sale = [
-            {"id": "health_potion_small", "price": 10},
-            {"id": "mana_potion_small", "price": 12},
-            {"id": "anti_poison_potion", "price": 5},
-            {"id": "Auto Attack", "price": 5},
+            {"id": "health_potion_small", "price": 1},
+            {"id": "mana_potion_small", "price": 1},
+            {"id": "anti_poison_potion", "price": 1},
+            {"id": "Auto Attack", "price": 1},
+            {"id": "weapon_attack_scroll_70", "price": 1},
+            {"id": "weapon_attack_scroll_30", "price": 1},
+            {"id": "armor_defense_scroll_70", "price": 1},
 
             # ----- Training Equipment -----
             {"id": "basic_training_helmet", "price": 1},
@@ -971,8 +1034,27 @@ class CharacterWindow:
         x += 16
         y += 16
 
-        width = item.tooltip_width + padding * 2
-        height = item.tooltip_height + padding * 2
+        #calculate tooltip size
+        lines = item.tooltip_text()
+        font = self.small_font
+
+        #calculate width and height
+        max_width = 0
+        total_height = 0
+        for line in lines:
+            #strip color markers for width calculateion
+            display_line = line.replace("ROLLED:", "").replace("ENHANCED:", "").replace("SLOTS:", "")
+            if line.startswith("Level Required:"):
+                req_level = int(line.split(":")[1])
+                text = f"Requires Level: {req_level}"
+                surf = font.render(text, True, (255, 255, 255))
+            else:
+                surf = font.render(display_line, True, (255, 255, 255))
+            max_width = max(max_width, surf.get_width())
+            total_height += surf.get_height()
+        
+        width = max_width + padding * 2
+        height = total_height + padding * 2
 
         #screen boundary checks
         if x + width > SCREEN_WIDTH:
@@ -984,16 +1066,45 @@ class CharacterWindow:
         pygame.draw.rect(surface, (20, 20, 20), (x, y, width, height))
         pygame.draw.rect(surface, (180, 180, 180), (x, y, width, height), 1)
 
-        #Name
-        rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
-        name_surf = self.small_font.render(item.name, True, rarity_color)
-        surface.blit(name_surf, (x + padding, y + padding))
+        ry = y + padding
+        for i, line in enumerate(lines):
+            #first line is name (rarirty colored)
+            if i == 0:
+                rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
+                surf = font.render(line, True, rarity_color)
 
-        #other tooltip lines
-        yy = y + padding + name_surf.get_height()
-        for surf in item.tooltip_surfaces[1:]:
-            surface.blit(surf, (x + padding, yy))
-            yy += surf.get_height()
+            #level requirement (color based on player level)
+            elif line.startswith("Level Required:"):
+                req_level = int(line.split(":")[1])
+                player_level = self.game.player.level
+                if player_level >= req_level:
+                    color = (100, 255, 100) #green
+                else:
+                    color = (255, 100, 100) #red
+                text = f"Requires Level: {req_level}"
+                surf = font.render(text, True, color)
+
+            #rolled stats
+            elif line.startswith("ROLLED:"):
+                display_text = line.replace("ROLLED:", "")
+                surf = font.render(display_text, True, (100, 255, 100)) #green
+
+            #enhancements
+            elif line.startswith("ENHANCED:"):
+                display_text = line.replace("ENHANCED:", "")
+                surf = font.render(display_text, True, (100, 200, 255)) #cyan
+
+            #enhancement slots
+            elif line.startswith("SLOTS:"):
+                display_text = line.replace("SLOTS:", "Slots: ")
+                surf = font.render(display_text, True, (255, 215, 0)) #gold
+
+            #normal lines
+            else:
+                surf = font.render(line, True, (255, 255, 255))
+
+            surface.blit(surf, (x + padding, ry))
+            ry += surf.get_height()
 
 
     def handle_click(self, pos):
@@ -1181,3 +1292,141 @@ class LevelUpWindow:
 
         #clear pending after applying
         self.reset_pending_points()
+
+class EnhancementConfirmationWindow:
+    def __init__(self, game):
+        self.game = game
+        self.visible = False
+        self.scroll = None
+        self.target_item = None
+
+        self.width = 400
+        self.height = 280
+        self.bg_color = (30, 30, 30)
+        self.border_color = (150, 150, 150)
+
+        self.font = pygame.font.Font(None, 24)
+        self.title_font = pygame.font.Font(None, 30)
+
+        self.confirm_button = None
+        self.cancel_button = None
+
+    def show(self, scroll, target_item):
+        #show confirmation dialog for enhancement
+        #print(f"[DEBUG DIALOG] show() called with scroll={scroll.name}, item={target_item.name}")
+        self.visible = True
+        self.scroll = scroll
+        self.target_item = target_item
+        #print(f"[DEBUG DIALOG] After setting: visible={self.visible}, scroll={self.scroll}, target={self.target_item}")
+
+    def hide(self):
+        #hide confirmation dialog
+        self.visible = False
+        self.scroll = None
+        self.target_item = None
+
+    def draw(self, screen):
+        if not self.visible or not self.scroll or not self.target_item:
+            return
+        
+        #print(f"[DEBUG DIALOG] Drawing confirmation dialog at visible={self.visible}")
+
+        x = SCREEN_WIDTH // 2 - self.width // 2
+        y = SCREEN_HEIGHT // 2 - self.height // 2
+
+        #background
+        panel = pygame.Rect(x, y, self.width, self.height)
+        pygame.draw.rect(screen, self.bg_color, panel)
+        pygame.draw.rect(screen, self.border_color, panel, 2)
+
+        #title
+        title = self.title_font.render("Enhance Item?", True, (255, 255, 255))
+        screen.blit(title, (x + self.width // 2 - title.get_width() // 2, y + 15))
+
+        #item info
+        y_offset = y + 60
+
+        item_text = self.font.render(f"Item: {self.target_item.name}", True, (255, 255, 255))
+        screen.blit(item_text, (x + 20, y_offset))
+        y_offset += 30
+
+        scroll_text = self.font.render(f"Scroll: {self.scroll.name}", True, (200, 200, 255))
+        screen.blit(scroll_text, (x + 20, y_offset))
+        y_offset += 30
+
+        bonus_text = self.font.render(f"Bonus: +{self.scroll.stat_bonus} {self.scroll.stat_to_enhance.replace('_', ' ').title()}", True, (100, 255, 100))
+        screen.blit(bonus_text, (x + 20, y_offset))
+        y_offset += 30
+
+        success_text = self.font.render(f"Success Rate: {int(self.scroll.success_chance * 100)}%", True, (255, 255, 100))
+        screen.blit(success_text, (x + 20, y_offset))
+        y_offset += 30
+
+        slots_remaining = self.target_item.enhancement_slots - self.target_item.used_slots
+        slots_text = self.font.render(f"Slots Remaining: {slots_remaining}/{self.target_item.enhancement_slots}", True, (200, 200, 200))
+        screen.blit(slots_text, (x + 20, y_offset))
+        y_offset += 35
+
+        #warning for boom scrolls
+        if not self.scroll.is_safe_scroll:
+            warning = self.font.render("WARNING: Item may be destroyed on failure!", True, (255, 100, 100))
+            screen.blit(warning, (x + self.width // 2 - warning.get_width() // 2, y_offset))
+            y_offset += 30
+
+        #buttons
+        button_y = y + self.height - 60
+
+        self.confirm_button = pygame.Rect(x + 50, button_y, 130, 40)
+        self.cancel_button = pygame.Rect(x + self.width - 180, button_y, 130, 40)
+
+        #confirm button
+        pygame.draw.rect(screen, (50, 150, 50), self.confirm_button)
+        pygame.draw.rect(screen, (100, 255, 100), self.confirm_button, 2)
+        confirm_text = self.font.render("Confirm", True, (255, 255, 255))
+        screen.blit(confirm_text, (self.confirm_button.x + self.confirm_button.width // 2 - confirm_text.get_width() // 2,
+                                   self.confirm_button.y + self.confirm_button.height // 2 - confirm_text.get_height() // 2))
+
+
+        #cancel button
+        pygame.draw.rect(screen, (150, 50, 50), self.cancel_button)
+        pygame.draw.rect(screen, (255, 100, 100), self.cancel_button, 2)
+        cancel_text = self.font.render("Cancel", True, (255, 255, 255))
+        screen.blit(cancel_text, (self.cancel_button.x + self.cancel_button.width // 2 - cancel_text.get_width() // 2,
+                                   self.cancel_button.y + self.cancel_button.height // 2 - cancel_text.get_height() // 2))
+        
+
+
+    def click(self, pos):
+        #handle clicks on the confirmation dialog
+        #print(f"[DEBUG DIALOG] Click at {pos}, visible={self.visible}")
+        if not self.visible:
+            return False
+        
+        #print(f"[DEBUG DIALOG] Checking buttons: confirm={self.confirm_button}, cancel={self.cancel_button}")
+
+        if self.confirm_button and self.confirm_button.collidepoint(pos):
+            #apply enhancement
+            #print("[DEBUG DIALOG] CONFIRM clicked!")
+            result = self.game.player.apply_enhancement(self.scroll, self.target_item)
+
+            #clear enhancement mode
+            self.game.player.enhancment_scroll = None
+
+            #show result
+            self.game.show_enhancement_result(result)
+
+            #refresh invenetory
+            self.game.inventory_window.mark_dirty()
+
+            self.hide()
+            return True
+        
+        if self.cancel_button and self.cancel_button.collidepoint(pos):
+            #cancel - clear enhancement mode
+            self.game.player.enhancement_scroll = None
+            self.hide()
+            return True
+        
+        return True #consume click even if not on button (prevent clicking through)
+
+
