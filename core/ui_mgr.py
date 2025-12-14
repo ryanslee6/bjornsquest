@@ -1,6 +1,8 @@
 import pygame
+import os
 from settings import *
 from settings import RARITY_COLORS
+
 
 #spell_slots = {}
 
@@ -73,6 +75,12 @@ class InventoryWindow:
             else:
                 item = self.cached_items[entry["id"]]
                 cache_key = entry["id"]
+
+            #lock font + build name surface
+            if item.name_font is None:
+                item.name_font = self.font
+
+            item.rebuild_name_surface(item.name_font)
 
             rect = pygame.Rect(10, y_offset, self.width - 40, 28)
             self.item_rects.append((rect, entry, cache_key))
@@ -198,19 +206,45 @@ class InventoryWindow:
         lines = item.tooltip_text()
         font = self.font
 
+        rendered_lines = []
+
+        # ---------------------------------
+        # Normalize ALL tooltip lines
+        # ---------------------------------
+        for i, line in enumerate(lines):
+            #dict-based line (new system)
+            if isinstance(line, dict):
+                text = line.get("text", "")
+                color_key = line.get("color", "normal")
+
+                if color_key == "enhanced":
+                    color = (80, 220, 80)
+                elif color_key == "warning":
+                    color = (255, 100, 100)
+                else:
+                    color = (255, 255, 255)
+
+            else:
+                text = line
+                color = (255, 255, 255)
+
+            # ---------------------------------
+            # Special handling by CONTENT
+            # ---------------------------------
+            if text.startswith("Level Required:"):
+                req_level = int(text.split(":")[1])
+                player_level = self.game.player.level
+                color = (100, 255, 100) if player_level >= req_level else (255, 100, 100)
+                text = f"Requires Level: {req_level}"
+
+            rendered_lines.append((text, color, i))   
+
         #calculate width and height
         max_width = 0
         total_height = 0
-        for line in lines:
-            #strip color markers for width calculation
-            display_line = line.replace("ROLLED:", "").replace("ENHANCED:", "").replace("SLOTS:", "")
-            if line.startswith("Level Required:"):
-                req_level = int(line.split(":")[1])
-                text = f"Requires Level: {req_level}"
-                surf = font.render(text, True, (255, 255, 255))
-            else:
-                surf = font.render(line, True, (255, 255, 255))
 
+        for text, color, _ in rendered_lines:
+            surf = font.render(text, True, color)
             max_width = max(max_width, surf.get_width())
             total_height += surf.get_height()
 
@@ -220,50 +254,22 @@ class InventoryWindow:
         if x + width > SCREEN_WIDTH:
             x = SCREEN_WIDTH - width - 5
         if y + height > SCREEN_HEIGHT:
-            y = SCREEN_HEIGHT - height - 5      
+            y = SCREEN_HEIGHT - height - 5
 
         #draw background
         pygame.draw.rect(screen, (20, 20, 20), (x, y, width, height))
         pygame.draw.rect(screen, (180, 180, 180), (x, y, width, height), 1)
-
+        
+        # ---------------------------------
+        # Draw lines
+        # ---------------------------------
         ry = y + padding
-        for i, line in enumerate(lines):
-            #first line is name (rarity colored)
-            if i == 0:
-                rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
-                surf = font.render(line, True, rarity_color)
-            #level equirement (color based on player level)
-            elif line.startswith("Level Required:"):
-                req_level = int(line.split(":")[1])
-                player_level = self.game.player.level
+        for text, color, index in rendered_lines:
+            # first line = item name (rarity color)
+            if index == 0:
+                color = RARITY_COLORS.get(item.rarity, color)
 
-                if player_level >= req_level:
-                    color = (100, 255, 100) #green
-                else:
-                    color = (255, 100, 100) #red
-
-                text = f"Requires Level: {req_level}"
-                surf = font.render(text, True, color)
-
-            #rolled stats (green)
-            elif line.startswith("ROLLED:"):
-                display_text = line.replace("ROLLED:", "")
-                surf = font.render(display_text, True, (100, 255, 100)) #green
-
-            #enhancements
-            elif line.startswith("ENHANCED:"):
-                display_text = line.replace("ENHANCED:", "")
-                surf = font.render(display_text, True, (100, 200, 255)) #cyan
-
-            #enhancement slots
-            elif line.startswith("SLOTS:"):
-                display_text = line.replace("SLOTS:", "Slots: ")
-                surf = font.render(display_text, True, (255, 215, 0)) #gold
-            
-            #normal lines
-            else:
-                surf = font.render(line, True, (255, 255, 255))
-
+            surf = font.render(text, True, color)
             screen.blit(surf, (x + padding, ry))
             ry += surf.get_height()
 
@@ -521,9 +527,9 @@ class InventoryWindow:
                 screen.blit(qty_surf, (text_x + item.name_surface.get_width() + 5, draw_rect.y + 5))
 
             # DEBUG: Draw index number in top-right corner
-            index_font = pygame.font.Font(None, 20)
-            index_surf = index_font.render(f"[{i}]", True, (255, 255, 0))  # Yellow
-            screen.blit(index_surf, (draw_rect.right - 30, draw_rect.y + 2))
+            #index_font = pygame.font.Font(None, 20)
+            #index_surf = index_font.render(f"[{i}]", True, (255, 255, 0))  # Yellow
+            #screen.blit(index_surf, (draw_rect.right - 30, draw_rect.y + 2))
     
 class VendorWindow:
     def __init__(self, game):
@@ -549,6 +555,7 @@ class VendorWindow:
             {"id": "weapon_attack_scroll_70", "price": 1},
             {"id": "weapon_attack_scroll_30", "price": 1},
             {"id": "armor_defense_scroll_70", "price": 1},
+            {"id": "weapon_strength_scroll_70", "price": 1},
 
             # ----- Training Equipment -----
             {"id": "basic_training_helmet", "price": 1},
@@ -556,7 +563,7 @@ class VendorWindow:
             {"id": "basic_training_pants", "price": 1},
             {"id": "basic_training_boots", "price": 1},
             {"id": "basic_training_shield", "price": 1},
-            {"id": "basic_training_axe", "price": 1},
+            #{"id": "basic_training_axe", "price": 1},
             {"id": "basic_training_sword", "price": 1}
         ]
 
@@ -790,15 +797,20 @@ class SpellbookWindow:
         self.on_assign_callback = on_assign_callback
         self.visible = False
 
-        self.width = 360
-        self.height = 300
-        self.x = 220
-        self.y = 150
+        self.width = 775
+        self.height = 550
+        self.x = 5
+        self.y = 40
         self.bg_color = (20, 20, 20)
         self.border_color = (100, 100, 100)
 
         self.font = pygame.font.Font(None, 24)
         self.title_font = pygame.font.Font(None, 30)
+
+        self.spellbook_bg = pygame.image.load(os.path.join("assets", "images", "spell_book.png")).convert_alpha()
+        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+
+        self.spellbook_bg = pygame.transform.scale(self.spellbook_bg, (self.width, self.height))
 
         self.selected_slot = None
     
@@ -821,31 +833,92 @@ class SpellbookWindow:
     def draw(self, surface):
         if not self.visible:
             return
-        
-        panel = pygame.Rect(self.x, self.y, self.width, self.height)
-        pygame.draw.rect(surface, self.bg_color, panel)
-        pygame.draw.rect(surface, self.border_color, panel, 2)
 
-        title = self.title_font.render("Spellbook", True, (255, 255, 255))
-        surface.blit(title, (self.x + 10, self.y + 10))
+        surface.blit(self.spellbook_bg, self.rect.topleft)
 
-        start_y = self.y + 50
+        title_offset_x = 490
+        title_offset_y = 125
+
+        self.draw_outlined_text(
+            surface,
+            "Spellbook",
+            self.title_font,
+            color = (255, 255, 255),
+            outline_color = (0, 0, 0),
+            pos = (self.x + title_offset_x, self.y + title_offset_y),
+            outline_px = 2
+        )
+      
+
+        padding_x = 425
+        padding_top = 180
+        row_height = 34
+
+        start_y = self.y + padding_top
 
         for i, spell in enumerate(self.spellbook):
-            text = f"{spell.name}"
-            color = (200, 200, 255)
-            surf = self.font.render(text, True, color)
-            rect = surf.get_rect(topleft = (self.x + 20, start_y + i * 32))
-            surface.blit(surf, rect)
+            text_x = self.x + padding_x
+            text_y = start_y + i * row_height
 
-            pygame.draw.rect(surface, (60, 60, 60), rect.inflate(8, 4), 1)
-            spell.click_rect = rect.inflate(8, 4)
+            rect = self.draw_outlined_text(
+                surface,
+                spell.name,
+                self.font,
+                color = (255, 255, 255),
+                outline_color = (0, 0, 0),
+                pos = (text_x, text_y),
+                outline_px = 1
+            )
+
+            row_rect = rect.inflate(14, 10)
+
+            #base background
+            bg = pygame.Surface(row_rect.size, pygame.SRCALPHA)
+            bg.fill((20, 20, 30, 140)) #translucent dark backing
+            surface.blit(bg, row_rect.topleft)
+
+            #border
+            pygame.draw.rect(surface, (120, 120, 150), row_rect, 1)
+
+            #hover hightlight
+            if row_rect.collidepoint(pygame.mouse.get_pos()):
+                hover = pygame.Surface(row_rect.size, pygame.SRCALPHA)
+                hover.fill((80, 80, 120, 90))
+                surface.blit(hover, row_rect.topleft)
+
+            spell.click_rect = row_rect
 
         mouse_pos = pygame.mouse.get_pos()
         for spell in self.spellbook:
             if hasattr(spell, "click_rect") and spell.click_rect.collidepoint(mouse_pos):
                 self.draw_spell_tooltip(surface, spell, mouse_pos)
                 break
+
+    def draw_outlined_text(
+            self,
+            surface,
+            text,
+            font,
+            color,
+            outline_color,
+            pos,
+            outline_px = 1
+    ):
+        base = font.render(text, True, color)
+        outline = font.render(text, True, outline_color)
+
+        x, y = pos
+
+        #draw outline (4 direction)
+        surface.blit(outline, (x - outline_px, y))
+        surface.blit(outline, (x + outline_px, y))
+        surface.blit(outline, (x, y - outline_px))
+        surface.blit(outline, (x, y + outline_px))
+
+        #draw main text
+        surface.blit(base, (x, y))
+
+        return base.get_rect(topleft = pos)
 
     def handle_click(self, pos):
         if not self.visible:

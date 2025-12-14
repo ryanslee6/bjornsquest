@@ -115,5 +115,18 @@
         "description": "Enhances a weapon with +10% attack with a 10% success chance",
         "rarity": "common",
         "stackable": true
+    },
+    "weapon_strength_scroll_70": {
+        "name": "Weapon Strength Scroll 70%",
+        "type": "consumable",
+        "subtype": "enhancement_scroll",
+        "target_type": "Weapon",
+        "success_chance": 0.70,
+        "stat": "strength",
+        "stat_bonus": 1,
+        "safe": true,
+        "description": "Enhances a weapon with +1 strength with a 70% success chance",
+        "rarity": "common",
+        "stackable": true
     }
 }

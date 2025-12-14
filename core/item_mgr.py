@@ -51,10 +51,19 @@ class ItemManager:
             item.icon_small = None
 
         #tooltip surfaces
-        lines = [line for line in item.tooltip_text() if not line.startswith("Level Required:")]
+        lines = []
+        for line in item.tooltip_text():
+            if isinstance(line, dict):
+                text = line.get("text", "")
+            else:
+                text = line
+            
+            if not text.startswith("Level Required:"):
+                lines.append(text)
+
         item.tooltip_surfaces = [
-            self.tooltip_font.render(line, True, (255, 255, 255))
-            for line in lines
+            self.tooltip_font.render(text, True, (255, 255, 255))
+            for text in lines
         ]
 
         if item.tooltip_surfaces:

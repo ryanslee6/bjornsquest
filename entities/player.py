@@ -528,6 +528,8 @@ class Player:
             }
             target_item.enhancements.append(enhancement)
 
+            target_item.rebuild_name_surface(self.game.font_small)
+
             print(f"[ENHANCE] SUCCESS! +{scroll.stat_bonus} {scroll.stat_to_enhance}")
 
             #recalculate stats if item is equipped

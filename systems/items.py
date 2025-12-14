@@ -1,11 +1,14 @@
 import pygame
 import os
 import time
+from settings import *
 
 class Item:
     def __init__(self, item_id, data, sprite = None, rolled_stats = None):
         self.id = item_id
         self.name = data.get("name", item_id)
+        self.name_font = None
+
         
         #Generic item fields
         self.type = data.get("type", "misc")
@@ -34,6 +37,7 @@ class Item:
         #enhancement tracking
         self.enhancements = []
         self.used_slots = 0
+        #self.enhancement_level = 0
 
         #enhancement scroll fields
         self.target_type = data.get("target_type", None) #weapon, armor, accessories
@@ -54,37 +58,91 @@ class Item:
         self.sprite = sprite
         if sprite:
             path = os.path.join("assets", "images", sprite)
-            self.icon = pygame.image.load(path).convert._alpha()
+            self.icon = pygame.image.load(path).convert_alpha()
         else:
             self.icon = None
+
+        self.name_surface = None
+
+    def get_enhancement_bonus(self, stat_key):
+        if not self.enhancements:
+            return 0
+        return sum(e["value"] for e in self.enhancements if e["stat"] == stat_key)
+
+    def get_display_name(self):
+        level = len(self.enhancements) if hasattr(self, "enhancements") else 0
+        if level > 0:
+            return f"{self.name} +{level}"
+        return self.name
+    
+    def rebuild_name_surface(self, font):
+        display_name = self.get_display_name()
+        rarity_color = RARITY_COLORS.get(self.rarity, (255, 255, 255))
+        self.name_surface = font.render(display_name, True, rarity_color)
 
     def use(self, player):
         #override in child classes
         print(f"{self.name} has no effect.")
 
+    def get_total_stat(self, stat):
+        base = 0
+
+        #base stats
+        if stat == "min_dmg":
+            base = self.min_dmg
+        elif stat == "max_dmg":
+            base = self.max_dmg
+        elif stat == "armor":
+            base = self.rolled_armor if self.rolled_armor is not None else 0
+        elif hasattr(self, stat):
+            base = getattr(self, stat, 0)
+
+        #rolled bonsues 
+        base += self.rolled_stats.get(stat, 0)
+
+        #enhancement bonuses
+        base += self.get_enhancement_bonus(stat)
+
+        #attack enhances both min and max damage
+        if stat in ("min_dmg", "max_dmg"):
+            base += self.get_enhancement_bonus("attack")
+
+
+        return base       
+
     def tooltip_text(self):
         lines = [
-            f"{self.name}",
-            f"Type: {self.type.title()}",
+            f"{self.get_display_name()}"
         ]
 
         #Weapon stats
         if self.type == "Weapon":
-            #base damage
-            base_damage = f"{self.min_dmg}-{self.max_dmg}"
-            lines.append(f"Damage: {base_damage}")
+            #hands required + weapon type
+            if hasattr(self, 'hands'):
+                hands_text = "Two-Handed" if self.hands == 2 else "One-Handed"
+                weapon_type = self.weapon_type.title() if self.weapon_type else "Weapon"
+                lines.append(f"{hands_text} {weapon_type}")
+            
+            #weapon damage
+            min_dmg = self.get_total_stat("min_dmg")
+            max_dmg = self.get_total_stat("max_dmg")
+
+            attack_bonus = self.get_enhancement_bonus("attack")
+
+            if attack_bonus > 0:
+                lines.append({
+                    "text": f"Damage: {min_dmg}-{max_dmg} (+{attack_bonus})",
+                    "color": "enhanced"
+                })
+            else:
+                lines.append({
+                    "text": f"Damage: {min_dmg}-{max_dmg}",
+                    "color": "normal"
+                })
 
             #attack speed
             lines.append(f"Attack Speed: {self.attack_speed:.1f}s")
 
-            #weapon type
-            if hasattr(self, 'weapon_type') and self.weapon_type:
-                lines.append(f"Weapon Type: {self.weapon_type}")
-
-            #hands required
-            if hasattr(self, 'hands'):
-                hands_text = "Two-Handed" if self.hands == 2 else "One-Handed"
-                lines.append(hands_text)
 
         #Armor stats
         if self.type == "Armor":
@@ -100,22 +158,43 @@ class Item:
 
 
         #show level requirement (will be colored in rendering)
-        if hasattr(self, 'required_level') and self.required_level > 1:
+        if hasattr(self, 'required_level') and self.required_level >= 1:
             lines.append(f"Level Required: {self.required_level}")
 
-        #show bonus stats if they exist
-        if hasattr(self, 'rolled_stats') and self.rolled_stats:
-            for stat, value in self.rolled_stats.items():
-                stat_display = stat.replace("_", " ").title()
-                if value > 0:
-                    lines.append(f"ROLLED:+{value} {stat_display}")
+        #rolled and enhanced stats
+        all_stats = set()
 
-        #enhancements
-        if hasattr(self, 'enhancements') and self.enhancements:
-            for enhancement in self.enhancements:
-                stat = enhancement["stat"].replace("_", " ").title()
-                value = enhancement["value"]
-                lines.append(f"ENHANCED:+{value} {stat}")
+        #include rolled stats
+        if hasattr(self, "rolled_stats"):
+            all_stats.update(self.rolled_stats.keys())
+
+        #include enhancement-only stats
+        for enh in self.enhancements:
+            all_stats.add(enh["stat"])
+
+        for stat in all_stats:
+
+            if stat == "attack":
+                continue
+            
+            rolled = self.rolled_stats.get(stat, 0)
+            enhanced = self.get_enhancement_bonus(stat)
+            total = rolled + enhanced
+
+            stat_display = stat.replace("_", " ").title()
+
+            if enhanced > 0 and rolled > 0:
+                lines.append({
+                    "text": f"+{total} {stat_display} (+{enhanced})",
+                    "color": "enhanced"
+                })
+            elif enhanced > 0 and rolled == 0:
+                lines.append({
+                    "text": f"+{enhanced} {stat_display}",
+                    "color": "enhanced"
+                })
+            elif rolled > 0:
+                lines.append(f"+{rolled} {stat_display}")
 
         #enhancement slots remaining
         if hasattr(self, 'enhancement_slots') and self.enhancement_slots > 0:
