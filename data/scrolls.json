@@ -1,14 +1,14 @@
 {
-    "weapon_attack_scroll_70": {
-        "name": "Weapon Attack Scroll 70%",
+    "weapon_attack_scroll_100": {
+        "name": "Weapon Attack Scroll 100%",
         "type": "consumable",
         "subtype": "enhancement_scroll",
         "target_type": "Weapon",
-        "success_chance": 0.70,
+        "success_chance": 1.0,
         "stat": "attack",
         "stat_bonus": 1,
         "safe": true,
-        "description": "Enhances a weapon with +1 attack with a 70% success chance",
+        "description": "Enhances a weapon with +1 attack with a 100% success chance",
         "rarity": "common",
         "stackable": true
     },
@@ -51,16 +51,16 @@
         "rarity": "common",
         "stackable": true
     },
-    "armor_defense_scroll_70": {
-        "name": "Armor Defense Scroll 70%",
+    "armor_defense_scroll_100": {
+        "name": "Armor Defense Scroll 100%",
         "type": "consumable",
         "subtype": "enhancement_scroll",
         "target_type": "Armor",
-        "success_chance": 0.70,
+        "success_chance": 1.0,
         "stat": "armor",
         "stat_bonus": 1,
         "safe": true,
-        "description": "Enhances armor with +1 defense with a 70% success rate.",
+        "description": "Enhances armor with +1 armor with a 70% success rate.",
         "rarity": "common",
         "stackable": true
     },
@@ -116,16 +116,68 @@
         "rarity": "common",
         "stackable": true
     },
-    "weapon_strength_scroll_70": {
-        "name": "Weapon Strength Scroll 70%",
+    "weapon_strength_scroll_100": {
+        "name": "Weapon Strength Scroll 100%",
         "type": "consumable",
         "subtype": "enhancement_scroll",
         "target_type": "Weapon",
-        "success_chance": 0.70,
+        "success_chance": 1.0,
         "stat": "strength",
         "stat_bonus": 1,
         "safe": true,
-        "description": "Enhances a weapon with +1 strength with a 70% success chance",
+        "description": "Enhances a weapon with +1 strength with a 100% success chance",
+        "rarity": "common",
+        "stackable": true
+    },
+    "weapon_constitution_scroll_100": {
+        "name": "Weapon Constitution Scroll 100%",
+        "type": "consumable",
+        "subtype": "enhancement_scroll",
+        "target_type": "Weapon",
+        "success_chance": 1.0,
+        "stat": "constitution",
+        "stat_bonus": 1,
+        "safe": true,
+        "description": "Enhances a weapon with +1 constitution with a 100% success chance",
+        "rarity": "common",
+        "stackable": true
+    },
+    "armor_strength_scroll_100": {
+        "name": "Armor Strength Scroll 100%",
+        "type": "consumable",
+        "subtype": "enhancement_scroll",
+        "target_type": "Armor",
+        "success_chance": 1.0,
+        "stat": "strength",
+        "stat_bonus": 1,
+        "safe": true,
+        "description": "Enhances armor with +1 strength with a 100% success rate.",
+        "rarity": "common",
+        "stackable": true
+    },
+    "armor_constitution_scroll_100": {
+        "name": "Armor Constitution Scroll 100%",
+        "type": "consumable",
+        "subtype": "enhancement_scroll",
+        "target_type": "Armor",
+        "success_chance": 1.0,
+        "stat": "constitution",
+        "stat_bonus": 1,
+        "safe": true,
+        "description": "Enhances armor with +1 constitution with a 100% success rate.",
+        "rarity": "common",
+        "stackable": true
+    },
+    "armor_hp_scroll_100": {
+        "name": "Armor HP Scroll 100%",
+        "type": "consumable",
+        "subtype": "enhancement_scroll",
+        "target_type": "Armor",
+        "success_chance": 1.0,
+        "stat": "max_hp",
+        "stat_bonus": 15,
+        "safe": true,
+        "description": "Enhances armor with +15 HP with a 100% success rate.",
         "rarity": "common",
         "stackable": true
     }

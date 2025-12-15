@@ -143,58 +143,67 @@ class Item:
             #attack speed
             lines.append(f"Attack Speed: {self.attack_speed:.1f}s")
 
-
         #Armor stats
         if self.type == "Armor":
-            #show rolled armor value if it exists
-            if hasattr(self, 'rolled_armor') and self.rolled_armor is not None:
-                lines.append(f"Armor: {self.rolled_armor}")
-            elif hasattr(self, 'armor_min') and self.armor_max > 0:
-                lines.append(f"Armor: {self.armor_min}-{self.armor_max}")
-
+            
             #armor type
             if hasattr(self, 'armor_type') and self.armor_type:
-                lines.append(f"Armor Type: {self.armor_type}")
+                lines.append(f"{self.armor_type}")
 
+            #armor value
+            base_armor = self.rolled_armor if self.rolled_armor is not None else 0
+            bonus_armor = self.get_enhancement_bonus("armor")
+            total_armor = base_armor + bonus_armor
+
+            if bonus_armor > 0:
+                lines.append({
+                    "text": f"Armor: {total_armor} (+{bonus_armor})",
+                    "color": "enhanced"
+                })
+            else:
+                lines.append({
+                    "text": f"Armor: {total_armor}",
+                    "color": "normal"
+                })           
 
         #show level requirement (will be colored in rendering)
         if hasattr(self, 'required_level') and self.required_level >= 1:
             lines.append(f"Level Required: {self.required_level}")
 
-        #rolled and enhanced stats
+        # --------------------------------------------------
+        # ROLLED + ENHANCED STATS (unified display)
+        # --------------------------------------------------
         all_stats = set()
 
-        #include rolled stats
+        #rolled stats
         if hasattr(self, "rolled_stats"):
             all_stats.update(self.rolled_stats.keys())
 
-        #include enhancement-only stats
-        for enh in self.enhancements:
-            all_stats.add(enh["stat"])
+        #enhancement-only stats
+        if hasattr(self, "enhancements") and self.enhancements:
+            all_stats.update(e["stat"] for e in self.enhancements)
 
-        for stat in all_stats:
-
-            if stat == "attack":
+        for stat in sorted(all_stats):
+            #attack is applied to damage, never show as stat line
+            if stat in ("attack", "armor"):
                 continue
-            
-            rolled = self.rolled_stats.get(stat, 0)
-            enhanced = self.get_enhancement_bonus(stat)
-            total = rolled + enhanced
 
-            stat_display = stat.replace("_", " ").title()
+            base = self.rolled_stats.get(stat, 0) if hasattr(self, "rolled_stats") else 0
+            bonus = self.get_enhancement_bonus(stat)
+            total = base + bonus
 
-            if enhanced > 0 and rolled > 0:
+            if total <= 0:
+                continue
+
+            stat_name = stat.replace("_", " ").title()
+
+            if bonus > 0:
                 lines.append({
-                    "text": f"+{total} {stat_display} (+{enhanced})",
+                    "text": f"{stat_name}: {total} (+{bonus})",
                     "color": "enhanced"
                 })
-            elif enhanced > 0 and rolled == 0:
-                lines.append({
-                    "text": f"+{enhanced} {stat_display}",
-                    "color": "enhanced"
-                })
-            elif rolled > 0:
-                lines.append(f"+{rolled} {stat_display}")
+            else:
+                lines.append(f"{stat_name}: {total}")     
 
         #enhancement slots remaining
         if hasattr(self, 'enhancement_slots') and self.enhancement_slots > 0:

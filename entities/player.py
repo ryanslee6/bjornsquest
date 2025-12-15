@@ -233,6 +233,15 @@ class Player:
                 self.inventory.remove(entry)
                 return
             
+    def consume_stackable_item(self, item_id, amount = 1):
+        for entry in self.inventory:
+            if entry.get("id") == item_id:
+                entry["qty"] -= amount
+                if entry["qty"] <= 0:
+                    self.inventory.remove(entry)
+                return True
+        return False
+            
     def apply_gear_stats(self):
         #apply armor and weapon stats
         for slot, item in self.equipment.items():
@@ -513,6 +522,10 @@ class Player:
         #consume the scroll
         self.use_item(scroll.id, self.game.items)
 
+        self.consume_stackable_item(scroll.id, 1)
+
+        self.enhancement_scroll = None
+
         #roll for success
         roll = random.random()
         success = roll <= scroll.success_chance
@@ -570,4 +583,6 @@ class Player:
                     "message": f"Enhancement failed. {slots_left} slot(s) remaining.",
                     "item_destroyed": False
                 }
+            
+
                 

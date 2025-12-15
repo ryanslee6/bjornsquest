@@ -552,10 +552,13 @@ class VendorWindow:
             {"id": "mana_potion_small", "price": 1},
             {"id": "anti_poison_potion", "price": 1},
             {"id": "Auto Attack", "price": 1},
-            {"id": "weapon_attack_scroll_70", "price": 1},
-            {"id": "weapon_attack_scroll_30", "price": 1},
-            {"id": "armor_defense_scroll_70", "price": 1},
-            {"id": "weapon_strength_scroll_70", "price": 1},
+            {"id": "weapon_attack_scroll_100", "price": 1},
+            {"id": "weapon_strength_scroll_100", "price": 1},
+            {"id": "weapon_constitution_scroll_100", "price": 1},
+            {"id": "armor_defense_scroll_100", "price": 1},
+            {"id": "armor_strength_scroll_100", "price": 1},
+            {"id": "armor_constitution_scroll_100", "price": 1},
+            {"id": "armor_hp_scroll_100", "price": 1},
 
             # ----- Training Equipment -----
             {"id": "basic_training_helmet", "price": 1},
@@ -1115,14 +1118,29 @@ class CharacterWindow:
         max_width = 0
         total_height = 0
         for line in lines:
-            #strip color markers for width calculateion
-            display_line = line.replace("ROLLED:", "").replace("ENHANCED:", "").replace("SLOTS:", "")
-            if line.startswith("Level Required:"):
-                req_level = int(line.split(":")[1])
-                text = f"Requires Level: {req_level}"
-                surf = font.render(text, True, (255, 255, 255))
+            # -------------------------------
+            # Normalize tooltip line
+            # -------------------------------
+            if isinstance(line, dict):
+                text = line.get("text", "")
             else:
-                surf = font.render(display_line, True, (255, 255, 255))
+                text = line
+            
+            #strip markers for width calculation
+            display_line = (
+                text.replace("ROLLED:", "")
+                    .replace("ENHANCED:", "")
+                    .replace("SLOTS:", "")
+            )
+
+            #special-case level requirements
+            if text.startswith("Level Required:"):
+                req_level = int(text.split(":")[1])
+                render_text = f"Requires Level: {req_level}"
+            else:
+                render_text = display_line
+
+            surf = font.render(render_text, True, (255, 255, 255))
             max_width = max(max_width, surf.get_width())
             total_height += surf.get_height()
         
@@ -1141,6 +1159,18 @@ class CharacterWindow:
 
         ry = y + padding
         for i, line in enumerate(lines):
+            if isinstance(line, dict):
+                text = line.get("text", "")
+                color_key = line.get("color", "normal")
+
+                if color_key == "enhanced":
+                    color = (80, 220, 80)
+                else:
+                    color = (255, 255, 255)
+            else:
+                text = line
+                color = (255, 255, 255)
+            
             #first line is name (rarirty colored)
             if i == 0:
                 rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
