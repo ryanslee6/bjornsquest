@@ -15,6 +15,8 @@ import time
 import math
 from pygame import gfxdraw
 import json
+from systems.bounty_system import BountyBoard, BountyTier
+from systems.bounty_ui import BountyBoardUI
 
 
 class GameManager:
@@ -125,8 +127,16 @@ class GameManager:
         self.combat = CombatManager(self.player, self.current_monster, self.loot_system, self)
         self.combat.auto_callback = lambda: self.auto_combat_enabled
 
+        #bounty system
+        self.bounty_board = BountyBoard()
+        self.bounty_ui = BountyBoardUI(
+            self.bounty_board,
+            x = 50,
+            y = 120,
+            width = 700,
+            height = 480
+        )
     
-
         self.spellbook_window = SpellbookWindow(
             self.player,
             self.combat.spellbook,
@@ -141,12 +151,12 @@ class GameManager:
         if self.combat:
             self.combat.auto_combat_enabled = self.auto_combat_enabled
 
-        button_width = 150
+        button_width = 120
         button_height = 50
         bottom_margin = 15
-        gap = 25
+        gap = 12
 
-        buttons = ["Fight", "Gather", "Craft", "Inventory", "Shop"]
+        buttons = ["Fight", "Gather", "Craft", "Bounties", "Inventory", "Shop"]
         num_buttons = len(buttons)
         total_width = num_buttons * button_width + (num_buttons - 1) * gap
         start_x = (SCREEN_WIDTH - total_width) // 2
@@ -188,9 +198,13 @@ class GameManager:
     def handle_event(self, event):
         # --- GLOBAL MODAL WINDOWS / OVERLAYS FIRST ---
         
-        # Inventorw window captures all mouse input when open
+        # Inventory window captures all mouse input when open
         if self.show_inventory and event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
             if self._handle_inventory_events(event):
+                return
+            
+        if self.bounty_ui.is_visible and event.type == pygame.MOUSEBUTTONDOWN:
+            if self._handle_bounty_events(event):
                 return
             
         #keyboard shortcuts
@@ -236,6 +250,48 @@ class GameManager:
             if event.button == 1:
                 if self.spellbook_window.handle_click(event.pos):
                     return
+
+    def _handle_bounty_events(self, event):
+        #handle clicks on the bounty board ui
+        if event.button != 1:
+            return False
+        
+        #click outside to close
+        if not self.bounty_ui.rect.collidepoint(event.pos):
+            self.bounty_ui.is_visible = False
+            print("[UI] Closed bounty board")
+            return True
+        
+        #handle ui button clicks
+        action = self.bounty_ui.handle_click(event.pos)
+
+        if action:
+            if action["action"] == "claim":
+                #claim completed bounty
+                reward = self.bounty_board.claim_bounty(action["bounty_id"])
+
+                if reward:
+                    self.player.gain_exp(reward.experience)
+                    self.player.gold += reward.gold
+
+                    #add bounty points to player
+                    if not hasattr(self.player, 'bounty_points'):
+                        self.player.bounty_points = 0
+                    self.player.bounty_points += reward.bounty_points
+
+                    print(f"[BOUNTY] Claimed: {reward}")
+                    if hasattr(self, 'combat'):
+                        self.combat.add_log(f"Bounty claimed! +{reward.experience} XP, +{reward.gold} Gold")
+        
+                return True
+            
+            elif action["action"] == "add":
+                #add new bounty
+                bounty = self.bounty_board.add_bounty(action["tier"])
+                print(f"[BOUNTY] Added {action['tier'].name} bounty: {bounty}")
+                return True
+        
+        return True
 
     def _handle_inventory_events(self, event):
         #enhancement confirmation takes priority
@@ -452,6 +508,11 @@ class GameManager:
                     self.state = "creature_select"
                     return True
                 
+                elif text == "Bounties":
+                    self.bounty_ui.toggle_visibility()
+                    print("[UI] Toggling Bounty Board")
+                    return True
+                
                 elif text == "Inventory":
                     self.show_inventory = not self.show_inventory
                     if self.show_inventory:
@@ -596,6 +657,12 @@ class GameManager:
             self.combat.loot_log = self.combat.loot_log[-5:]
             self.player.gain_exp(exp)
 
+            completed_bounties = self.bounty_board.on_monster_killed(self.current_monster.name)
+            if completed_bounties:
+                for bounty in completed_bounties:
+                    self.combat.add_log(f"✓ Bounty completed: {bounty.monster_name}!")
+                    print(f"[BOUNTY] Completed: {bounty}")
+
             # clear old debuffs
             self.current_monster.active_effects = []
 
@@ -708,6 +775,9 @@ class GameManager:
         #draw enhancement confirmation
         if self.enhancement_confirmation.visible:
             self.enhancement_confirmation.draw(self.screen)
+
+        if self.bounty_ui.is_visible:
+            self.bounty_ui.draw(self.screen)
 
 
     def draw_creature_select(self):

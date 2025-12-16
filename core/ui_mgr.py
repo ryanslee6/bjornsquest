@@ -1158,53 +1158,58 @@ class CharacterWindow:
         pygame.draw.rect(surface, (180, 180, 180), (x, y, width, height), 1)
 
         ry = y + padding
+        
         for i, line in enumerate(lines):
+
+            # -------------------------------
+            # Normalize tooltip line
+            # -------------------------------
             if isinstance(line, dict):
                 text = line.get("text", "")
                 color_key = line.get("color", "normal")
-
-                if color_key == "enhanced":
-                    color = (80, 220, 80)
-                else:
-                    color = (255, 255, 255)
             else:
                 text = line
-                color = (255, 255, 255)
+                color_key = "normal"
+
+            # -------------------------------
+            # Determine color
+            # -------------------------------
+            color = (255, 255, 255)
+
+            if color_key == "enhanced":
+                color = (80, 220, 80)
             
             #first line is name (rarirty colored)
             if i == 0:
-                rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
-                surf = font.render(line, True, rarity_color)
+                color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
+                surf = font.render(text, True, color)
 
             #level requirement (color based on player level)
-            elif line.startswith("Level Required:"):
-                req_level = int(line.split(":")[1])
+            elif text.startswith("Level Required:"):
+                req_level = int(text.split(":")[1])
                 player_level = self.game.player.level
+                
                 if player_level >= req_level:
                     color = (100, 255, 100) #green
                 else:
                     color = (255, 100, 100) #red
+                
                 text = f"Requires Level: {req_level}"
                 surf = font.render(text, True, color)
 
             #rolled stats
-            elif line.startswith("ROLLED:"):
-                display_text = line.replace("ROLLED:", "")
+            elif text.startswith("ROLLED:"):
+                display_text = text.replace("ROLLED:", "")
                 surf = font.render(display_text, True, (100, 255, 100)) #green
 
-            #enhancements
-            elif line.startswith("ENHANCED:"):
-                display_text = line.replace("ENHANCED:", "")
-                surf = font.render(display_text, True, (100, 200, 255)) #cyan
-
             #enhancement slots
-            elif line.startswith("SLOTS:"):
-                display_text = line.replace("SLOTS:", "Slots: ")
+            elif text.startswith("SLOTS:"):
+                display_text = text.replace("SLOTS:", "Slots: ")
                 surf = font.render(display_text, True, (255, 215, 0)) #gold
 
             #normal lines
             else:
-                surf = font.render(line, True, (255, 255, 255))
+                surf = font.render(text, True, color)
 
             surface.blit(surf, (x + padding, ry))
             ry += surf.get_height()
