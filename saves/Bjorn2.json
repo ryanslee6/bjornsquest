@@ -1,0 +1,48 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "save_date": "2025-12-17T15:25:20.638953",
+    "character_name": "Bjorn2",
+    "level": 1,
+    "playertime": 0
+  },
+  "player": {
+    "name": "Bjorn2",
+    "level": 1,
+    "exp": 0,
+    "gold": 100,
+    "stat_points": 0,
+    "stats": {
+      "base_strength": 5,
+      "base_dexterity": 5,
+      "base_constitution": 5,
+      "base_intelligence": 5,
+      "hp": 525,
+      "mp": 100
+    },
+    "unlocks": {
+      "auto_combat": false
+    },
+    "bounty_points": 0,
+    "inventory": [],
+    "equipment": {
+      "head": null,
+      "necke": null,
+      "back": null,
+      "chest": null,
+      "legs": null,
+      "feet": null,
+      "weapon": null,
+      "offhand": null,
+      "ring1": null,
+      "ring2": null
+    },
+    "active_effects": []
+  },
+  "game_state": {
+    "current_monster": null,
+    "monster_page": 0,
+    "playtime": 0,
+    "bounties": []
+  }
+}

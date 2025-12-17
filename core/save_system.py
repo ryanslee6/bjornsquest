@@ -83,6 +83,7 @@ class SaveSystem:
             'stats': {
                 'base_strength': base_str,
                 'base_dexterity': base_dex,
+                'base_constitution': base_con,
                 'base_intelligence': base_int,
                 'hp': player.stats.hp,
                 'mp': player.stats.mp,
@@ -92,6 +93,9 @@ class SaveSystem:
             'unlocks': {
                 'auto_combat': player.auto_combat_unlocked,
             },
+
+            #bounty points
+            'bounty_points': getattr(player, 'bounty_points', 0),
 
             #inventory
             'inventory': self._serialize_inventory(player.inventory),
@@ -182,11 +186,38 @@ class SaveSystem:
         return serialized
     
     def _serialize_game_state(self, game_state):
-        return {
+        serialized_state = {
             'current_monster': game_state.get('current_monster'),
             'monster_page': game_state.get('monster_page', 0),
             'playtime': game_state.get('playtime', 0),
         }
+    
+        #serialize bounty board if it exists
+        if 'bounty_board' in game_state:
+            serialized_state['bounties'] = self._serialize_bounties(game_state['bounty_board'])
+
+        return serialized_state
+    
+    #serialize the bounty boards active bounties
+    def _serialize_bounties(self, bounty_board):
+        serialized_bounties = []
+
+        for bounty in bounty_board.active_bounties:
+            serialized_bounties.append({
+                'id': bounty.id,
+                'tier': bounty.tier.name,
+                'monster_name': bounty.monster_name,
+                'target_count': bounty.target_count,
+                'current_count': bounty.current_count,
+                'is_completed': bounty.is_completed,
+                'reward': {
+                    'experience': bounty.reward.experience,
+                    'gold': bounty.reward.gold,
+                    'bounty_points': bounty.reward.bounty_points
+                }
+            })
+
+        return serialized_bounties
     
     #load a saved game and apply it to the player object
     def load_game(self, save_path, player, item_manager):
@@ -200,7 +231,7 @@ class SaveSystem:
             self._deserialize_player(save_data['player'], player, item_manager)
 
             #return game stat for the game manger to handle
-            return save_data.get('game_stat', {})
+            return save_data.get('game_state', {})
         
         except Exception as e:
             print(f"[LOAD ERROR] Failed to load game: {e}")
@@ -218,6 +249,9 @@ class SaveSystem:
         player.exp = player_data['exp']
         player.gold = player_data['gold']
         player.stat_points = player_data['stat_points']
+
+        #bounty points
+        player.bounty_points = player_data.get('bounty_points', 0)
 
         #stats
         stats_data = player_data['stats']  
@@ -340,6 +374,38 @@ class SaveSystem:
                 'mods': effect_data.get('mods', {}),
                 'color': tuple(effect_data.get('color', (200, 200, 200))),
             })
+
+    #restore bounties to the bounty board
+    def deserialize_bounties(self, bounties_data, bounty_board):
+        from systems.bounty_system import BountyTier, Bounty, BountyReward
+
+        bounty_board.active_bounties.clear()
+
+        for bounty_data in bounties_data:
+            #reconstruct the reward
+            reward = BountyReward(
+                experience = bounty_data['reward']['experience'],
+                gold = bounty_data['reward']['gold'],
+                bounty_points = bounty_data['reward']['bounty_points']
+            )
+
+            #reconstruct the bounty
+            bounty = Bounty(
+                id = bounty_data['id'],
+                tier = BountyTier[bounty_data['tier']],
+                monster_name = bounty_data['monster_name'],
+                target_count = bounty_data['target_count'],
+                current_count = bounty_data['current_count'],
+                reward = reward,
+                is_completed = bounty_data['is_completed']
+            )
+
+            bounty_board.active_bounties.append(bounty)
+
+            #update the bounty boards id counter to avoide conflics
+            bounty_board._next_bounty_id = max(bounty_board._next_bounty_id, bounty.id + 1)
+
+        print(f"[LOAD] Restored {len(bounties_data)} bounties")
 
     #get a list of all available save files
     def list_saves(self):

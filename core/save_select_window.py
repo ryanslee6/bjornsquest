@@ -168,6 +168,13 @@ class SaveSelectWindow:
             if 'monster_page' in game_state:
                 self.game.current_monster_page = game_state['monster_page']
 
+            if 'bounties' in game_state:
+                self.save_system.deserialize_bounties(
+                    game_state['bounties'],
+                    self.game.bounty_board
+                )
+                print(f"[SAVE SELECT] Restored {len(game_state['bounties'])} bounties")
+
             #start the game
             self.game.state = "home"
             self.close()

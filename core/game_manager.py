@@ -19,6 +19,7 @@ from systems.bounty_system import BountyBoard, BountyTier
 from systems.bounty_ui import BountyBoardUI
 from core.save_system import SaveSystem
 from core.save_select_window import SaveSelectWindow
+from core.character_creation_window import CharacterCreationWindow
 
 
 class GameManager:
@@ -146,6 +147,9 @@ class GameManager:
         #autosave
         self.autosave_timer = 0
         self.autosave_interval = 300.0 #5 minutes in seconds
+
+        #character creation window
+        self.character_creation_window = CharacterCreationWindow(self)
     
         self.spellbook_window = SpellbookWindow(
             self.player,
@@ -234,6 +238,10 @@ class GameManager:
             return surface
 
     def handle_event(self, event):
+        if self.character_creation_window.visible:
+            if self.character_creation_window.handle_event(event):
+                return
+
         #save select window (highest priority)
         if self.save_select_window.visible:
             if self.save_select_window.handle_event(event):
@@ -530,7 +538,7 @@ class GameManager:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.start_button.collidepoint(event.pos):
                 print("New Game Clicked")
-                self.state = "home"
+                self.character_creation_window.open()
                 return True
             
             if self.load_button.collidepoint(event.pos):
@@ -572,6 +580,7 @@ class GameManager:
                     game_state = {
                         'monster_page': self.current_monster_page,
                         'current_monster': self.current_monster.name if self.current_monster else None,
+                        'bounty_board': self.bounty_board
                     }
 
                     save_path = self.save_system.save_game(self.player, game_state)
@@ -633,7 +642,9 @@ class GameManager:
             print('[ENHANCE RESULT] Item was Destroyed!')
 
     def update(self, dt):
-        #self.combat.update_burns(dt) #moved down to bottom with rest of updates
+        if self.character_creation_window.visible:
+            self.character_creation_window.update(dt)
+
         if self.state == "combat":
             self.combat.update(dt)
             self.player.stats.hp_regen_multiplier = 0.1
@@ -815,6 +826,10 @@ class GameManager:
         #save select window
         if self.save_select_window.visible:
             self.save_select_window.draw(self.screen)
+
+        #character creation window
+        if self.character_creation_window.visible:
+            self.character_creation_window.draw(self.screen)
 
     def draw_title(self):
         self.screen.blit(self.title_image, (0, 0))
