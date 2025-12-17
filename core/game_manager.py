@@ -161,21 +161,49 @@ class GameManager:
         if self.combat:
             self.combat.auto_combat_enabled = self.auto_combat_enabled
 
-        button_width = 120
-        button_height = 50
+        button_width = 100
+        button_height = 40
         bottom_margin = 15
-        gap = 12
+        gap = 8
+        row_gap = 8
 
         buttons = ["Fight", "Gather", "Craft", "Bounties", "Inventory", "Shop", "Save"]
-        num_buttons = len(buttons)
-        total_width = num_buttons * button_width + (num_buttons - 1) * gap
-        start_x = (SCREEN_WIDTH - total_width) // 2
-        y_pos = SCREEN_HEIGHT - bottom_margin - button_height
+        
+        #calculate max buttons per row based on screen width
+        side_margin = 20
+        available_width = SCREEN_WIDTH - (side_margin * 2)
+        max_buttons_per_row = (available_width + gap) // (button_width + gap)
 
+        #split buttons intow rows (1 or 2 rows)
+        num_buttons = len(buttons)
+        if num_buttons <= max_buttons_per_row:
+            #all buttons fit in one row
+            buttons_per_row = [num_buttons]
+        else:
+            #needs 2 rows - balance evenly
+            buttons_row1 = (num_buttons + 1) // 2
+            buttons_row2 = num_buttons - buttons_row1
+            buttons_per_row = [buttons_row1, buttons_row2]
+
+        #create button rects
         self.buttons = {}
-        for i, text in enumerate(buttons):
-            x = start_x + i * (button_width + gap)
-            self.buttons[text] = pygame.Rect(x, y_pos, button_width, button_height)
+        button_index = 0
+        
+        for row_num, buttons_in_row in enumerate(buttons_per_row):
+            #calculate this rows width and center it
+            row_width = buttons_in_row * button_width + (buttons_in_row - 1) * gap
+            start_x = (SCREEN_WIDTH - row_width) // 2
+
+            #calculate y position
+            rows_below = len(buttons_per_row) - row_num - 1
+            y_pos = SCREEN_HEIGHT - bottom_margin - button_height - (rows_below * (button_height + row_gap))
+
+            #create buttons for this row
+            for col in range(buttons_in_row):
+                button_text = buttons[button_index]
+                x = start_x + col * (button_width + gap)
+                self.buttons[button_text] = pygame.Rect(x, y_pos, button_width, button_height)
+                button_index += 1
 
         self.current_action = None
 
@@ -809,7 +837,7 @@ class GameManager:
 
         for text, rect in self.buttons.items():
             pygame.draw.rect(self.screen, PURPLE if self.current_action == text else LIGHT_GRAY, rect)
-            label = self.font.render(text, True, WHITE)
+            label = self.font_small.render(text, True, WHITE)
             self.screen.blit(label, (rect.x + rect.width // 2 - label.get_width() // 2,
                                      rect.y + rect.height // 2 - label.get_height() // 2))
             

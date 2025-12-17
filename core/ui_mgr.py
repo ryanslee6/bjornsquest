@@ -544,19 +544,32 @@ class InventoryWindow:
 class VendorWindow:
     def __init__(self, game):
         self.game = game
-        self.width = 400
-        self.height = 360
+        self.width = 500
+        self.height = 500
         self.bg_color = (35, 35, 45)
         self.border_color = (200, 200, 200)
         self.text_color = (255, 255, 255)
         self.font = pygame.font.Font(None, 24)
+        self.small_font = pygame.font.Font(None, 20)
+
+        #position (centered)
+        self.x = SCREEN_WIDTH // 2 - self.width // 2
+        self.y = SCREEN_HEIGHT // 2 - self.height // 2
+
+        #current mode
+        self.mode = "buy"
+
+        #scrolling
         self.item_rects = []
         self.scroll_offset = 0
         self.max_scroll = 0
         self.scroll_speed = 20
-        self.x = SCREEN_WIDTH // 2 - self.width // 2
-        self.y = SCREEN_HEIGHT // 2 - self.height // 2
 
+        #tab buttons
+        self.buy_tab_rect = None
+        self.sell_tab_rect = None
+
+        #item list for buying
         self.items_for_sale = [
             {"id": "health_potion_small", "price": 1},
             {"id": "mana_potion_small", "price": 1},
@@ -580,12 +593,19 @@ class VendorWindow:
             {"id": "basic_training_sword", "price": 1}
         ]
 
-        self.panel_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        pygame.draw.rect(self.panel_surface, self.bg_color, (0, 0, self.width, self.height))
-        pygame.draw.rect(self.panel_surface, self.border_color, (0, 0, self.width, self.height), 2)
-
+        #cache for item data
         self.cached_item_data = {}
 
+        #panel surface (for consistent background)
+        self._rebuild_panel_surface()
+
+    def _rebuild_panel_surface(self):
+        #rebuild the background panel surface
+        self.panel_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        pygame.draw.rect(self.panel_surface, self.bg_color, (0, 0, self.width, self.height))
+        pygame.draw.rect(self.panel_surface, self.border_color, (0, 0, self.width, self.height), 2)      
+
+    #cache item data for performance
     def _ensure_item_cached(self, item_id, price):
         #build per item surfaces once
         if item_id in self.cached_item_data:
@@ -614,63 +634,239 @@ class VendorWindow:
 
         self.cached_item_data[item_id] = entry
         return entry
+    
+    #switch between buy and sell modes
+    def switch_mode(self, new_mode):
+        if new_mode in ("buy", "sell"):
+            self.mode = new_mode
+            self.scroll_offset = 0
+            print(f"[VENDOR] Switched to {new_mode.upper()} mode")
 
-    def draw(self, screen):
-        #self.x = SCREEN_WIDTH // 2 - self.width // 2
-        #self.y = SCREEN_HEIGHT // 2 - self.height // 2
+    #calculate how much the vendor will pay for an item
+    def calculate_sell_price(self, item):
+        #get base price
+        base_price = self._get_base_item_price(item)
 
-        # Rebuild panel surface if size changed
-        if self.panel_surface.get_width() != self.width or self.panel_surface.get_height() != self.height:
-            self.panel_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-            pygame.draw.rect(self.panel_surface, self.bg_color, (0, 0, self.width, self.height))
-            pygame.draw.rect(self.panel_surface, self.border_color, (0, 0, self.width, self.height), 2)
+        #base sell price (for now 50% of buy price)
+        sell_price = max(1, base_price // 2)
 
+        #bonus for enhanced items
+        if hasattr(item, "enhancements") and item.enhancements:
+            enhancement_bonus = len(item.enhancements) * 5
+            sell_price += enhancement_bonus
 
-        content_area = pygame.Rect(self.x, self.y, self.width, self.height)
-        screen.set_clip(content_area)
+        #bonus for rolled stats
+        if hasattr(item, "rolled_armor") and item.rolled_armor:
+            armor_bonus = item.rolled_armor * 2
+            sell_price += armor_bonus
 
-        screen.blit(self.panel_surface, (self.x, self.y))
+        return sell_price
+    
+    #get base prices, checks shop first, then estimates
+    def _get_base_item_price(self, item):
+        #check if item is sold in shop
+        for sale_item in self.items_for_sale:
+            if sale_item["id"] == item.id:
+                return sale_item["price"]
+            
+        #not in shop - estimate from item stats
+        return self._estimate_item_price(item)
+    
+    #estimate price for items not in shop
+    def _estimate_item_price(self, item):
+        base_value = 10
 
-        title = self.font.render("Vendor", True, self.text_color)
-        screen.blit(title, (self.x + 10, self.y + 10))
+        #rarity multiplier
+        rarity_multipliers = {
+            "common": 1.0,
+            "uncommon": 2.0,
+            "rare": 4.0,
+            "epic": 8.0,
+            "legendary": 16.0
+        }
+        rarity_mult = rarity_multipliers.get(item.rarity, 1.0)
 
+        #type specific pricing
+        if item.type == "Weapon":
+            #weapons valued by damage
+            avg_damage = (item.min_dmg + item.max_dmg) / 2
+            base_value = avg_damage * 3
+
+            #two handed weapons worth more
+            if hasattr(item, 'hands') and item.hands == 2:
+                base_value *= 1.5
+
+        #armor valued by armor value
+        elif item.type == "Armor":
+            if hasattr(item, 'armor_min') and hasattr(item, 'armor_max'):
+                avg_armor = (item.armor_min + item.armor_max) / 2
+                base_value = avg_armor * 4
+
+            #shields worth more
+            if hasattr(item, 'armor_type') and item.armor_type == "Shield":
+                base_value *= 1.3
+
+        #consumables valued by effect
+        elif item.type == "consumable":
+            if hasattr(item, 'heal_amount') and item.heal_amount:
+                base_value = item.heal_amount / 3
+
+            if hasattr(item, 'mana_amount') and item.mana_amount:
+                base_value += item.mana_amount / 2
+
+            #enhancement scrolls
+            if hasattr(item, 'subtype') and item.subtype == "enhancement_scroll":
+                base_value = 30
+                if hasattr(item, 'success_chance'):
+                    base_value *= item.success_chance
+
+        #level requirement bonus
+        if hasattr(item, 'required_level') and item.required_level > 1:
+            level_bonus = (item.required_level - 1) * 5
+            base_value += level_bonus
+
+        #apply rarity multiplier
+        final_price = int(base_value * rarity_mult)
+
+        return max(5, final_price)
+
+    #calculate bonus gold from rolled stats
+    def _calculate_stat_bonus(self, rolled_stats):
+        stat_values = {
+            "strength": 3,
+            "dexterity": 3,
+            "constitution": 3,
+            "intelligence": 3,
+            "max_hp": 0.5,
+            "max_mp": 0.5,
+            "armor": 4,
+            "crit_chance": 10,
+            "dodge_chance": 10,
+            "attack_speed": 15,
+        }
+
+        total_bonus = 0
+
+        for stat, value in rolled_stats.items():
+            multiplier = stat_values.get(stat, 2)
+            total_bonus += int(value * multiplier)
+
+        return total_bonus
+    
+    def get_sellable_items(self):
+        #get list of items from player inventory that can be sold
+        sellable = []
+
+        for entry in self.game.player.inventory:
+            #handle stackable items
+            if "id" in entry and entry.get("stackable", True):
+                item = self.game.items.get(entry["id"])
+                if item:
+                    sell_price = self.calculate_sell_price(item)
+                    sellable.append((item, sell_price, entry))
+
+            #handle equipment (and non-stackables)
+            elif "item" in entry:
+                item = entry["item"]
+                sell_price = self.calculate_sell_price(item)
+                sellable.append((item, sell_price, entry))
+
+        return sellable
+
+    #main draw method
+    def draw(self, surface):
+        surface.blit(self.panel_surface, (self.x, self.y))
+
+        self._draw_tabs(surface)
+        self._draw_header(surface)
+
+        if self.mode == "buy":
+            self._draw_buy_items(surface)
+        else:
+            self._draw_sell_items(surface)
+
+        if self.max_scroll > 0:
+            self._draw_scrollbar(surface)
+
+        self._draw_tooltips(surface)
+
+        close_text = self.font.render("Click outside to close", True, (160, 160, 160))
+        surface.blit(close_text, (self.x + 10, self.y + self.height - 25))
+
+    #draw buy/sell tabs
+    def _draw_tabs(self, surface):
+        tab_width = 100
+        tab_height = 35
+        tab_y = self.y + 10
+
+        #buy tab
+        buy_x = self.x + 20
+        self.buy_tab_rect = pygame.Rect(buy_x, tab_y, tab_width, tab_height)
+
+        buy_color = (70, 140, 70) if self.mode == "buy" else (50, 50, 60)
+        buy_border = (120, 200, 120) if self.mode == "buy" else (100, 100, 110)
+
+        pygame.draw.rect(surface, buy_color, self.buy_tab_rect, border_radius = 5)
+        pygame.draw.rect(surface, buy_border, self.buy_tab_rect, width = 2, border_radius = 5)
+
+        buy_text = self.font.render("Buy", True, (255, 255, 255))
+        buy_text_rect = buy_text.get_rect(center = self.buy_tab_rect.center)
+        surface.blit(buy_text, buy_text_rect)
+
+        #sell tab
+        sell_x = buy_x + tab_width + 10
+        self.sell_tab_rect = pygame.Rect(sell_x, tab_y, tab_width, tab_height)
+
+        sell_color = (140, 70, 70) if self.mode == "sell" else (50, 50, 60)
+        sell_border = (200, 120, 120) if self.mode == "sell" else (100, 100, 110)
+
+        pygame.draw.rect(surface, sell_color, self.sell_tab_rect, border_radius = 5)
+        pygame.draw.rect(surface, sell_border, self.sell_tab_rect, width = 2, border_radius = 5)
+
+        sell_text = self.font.render("Sell", True, (255, 255, 255))
+        sell_text_rect = sell_text.get_rect(center = self.sell_tab_rect.center)
+        surface.blit(sell_text, sell_text_rect)
+
+    #draw title and gold
+    def _draw_header(self, surface):
+        title_text = "Buy Items" if self.mode == "buy" else "Sell Items"
+        title = self.font.render(title_text, True, self.text_color)
+        surface.blit(title, (self.x + 240, self.y + 20))
 
         total_gold = self.game.player.get_total_gold()
         gold_text = self.font.render(f"Gold: {total_gold}", True, (255, 220, 100))
-        screen.blit(gold_text, (self.x + self.width - 140, self.y+ 10))
+        surface.blit(gold_text, (self.x + self.width - 140, self.y + 55))
+
+    #draw buy mode item list
+    def _draw_buy_items(self, surface):
+        content_area = pygame.Rect(self.x, self.y + 90, self.width, self.height - 140)
+        surface.set_clip(content_area)
 
         entry_height = 38
         self.item_rects.clear()
 
-        visible_top = 60
-        visible_bottom = self.height - 40
-
-        #panel_top = self.y + 40
-        #panel_bottom = self.y + self.height - 40
-
+        visible_top = 90
+        visible_bottom = self.height - 50
         y_offset = visible_top - self.scroll_offset
 
         total_height = len(self.items_for_sale) * entry_height
-                
+
         for entry in self.items_for_sale:
             item_id = entry["id"]
             price = entry["price"]
 
             cached = self._ensure_item_cached(item_id, price)
-            
+
             item_top = y_offset
             item_bottom = y_offset + entry_height
 
-            #skip items above the window
             if item_bottom < visible_top:
                 y_offset += entry_height
                 continue
 
-            #stop drawing if below window
             if item_top > visible_bottom:
                 break
 
-            #draw visible entry
             ITEM_RIGHT_PADDING = 32
             rect = pygame.Rect(
                 self.x + 10,
@@ -678,69 +874,149 @@ class VendorWindow:
                 self.width - ITEM_RIGHT_PADDING,
                 entry_height - 8
             )
-            
-            #rect = pygame.Rect(x + 10, y + y_offset, self.width - 20, 30)
-            pygame.draw.rect(screen, (60, 60, 60), rect)
-            pygame.draw.rect(screen, (100, 100, 100), rect, 1)
+
+            can_afford = self.game.player.gold >= price
+            bg_color = (60, 60, 60) if can_afford else (40, 40, 40)
+
+            pygame.draw.rect(surface, bg_color, rect)
+            pygame.draw.rect(surface, (100, 100, 100), rect, 1)
 
             if cached["icon_small"]:
-                screen.blit(cached["icon_small"], (rect.x + 5, rect.y + 5))
+                surface.blit(cached["icon_small"], (rect.x + 5, rect.y + 5))
                 text_x = rect.x + 36
             else:
                 text_x = rect.x + 8
 
-            screen.blit(cached["name_surface"], (text_x, rect.y + 5))
+            surface.blit(cached["name_surface"], (text_x, rect.y + 5))
 
             price_x = rect.right - cached["price_surface"].get_width() - 10
-            screen.blit(cached["price_surface"], (price_x, rect.y + 5))
+            surface.blit(cached["price_surface"], (price_x, rect.y + 5))
 
             self.item_rects.append((rect, cached))
-            
             y_offset += entry_height
 
         self.max_scroll = max(0, total_height - (visible_bottom - visible_top))
+        surface.set_clip(None)
 
-        # Close text
-        close_text = self.font.render("Click outside to close", True, (160, 160, 160))
-        screen.blit(close_text, (self.x + 10, self.y + self.height - 25))
+    #draw sell mode item list
+    def _draw_sell_items(self, surface):
+        content_area = pygame.Rect(self.x, self.y + 90, self.width, self.height - 140)
+        surface.set_clip(content_area)
+
+        entry_height = 38
+        self.item_rects.clear()
+
+        visible_top = 90
+        visible_bottom = self.height - 50
+        y_offset = visible_top - self.scroll_offset
+
+        sellable_items = self.get_sellable_items()
+
+        if not sellable_items:
+            no_items_text = self.font.render("No items to sell", True, (150, 150, 150))
+            text_rect = no_items_text.get_rect(center = (self.x + self.width // 2, self.y + 200))
+            surface.blit(no_items_text, text_rect)
+            surface.set_clip(None)
+            return
+        
+        total_height = len(sellable_items) * entry_height
+
+        for item, sell_price, inventory_entry in sellable_items:
+            item_top = y_offset
+            item_bottom = y_offset + entry_height
+
+            if item_bottom < visible_top:
+                y_offset += entry_height
+                continue
+
+            if item_top > visible_bottom:
+                break
+
+            ITEM_RIGHT_PADDING = 32
+            rect = pygame.Rect(
+                self.x + 10,
+                self.y + y_offset,
+                self.width - ITEM_RIGHT_PADDING,
+                entry_height - 8
+            )
+
+            pygame.draw.rect(surface, (60, 60, 60), rect)
+            pygame.draw.rect(surface, (100, 100, 100), rect, 1)
+
+            if hasattr(item, 'icon_small') and item.icon_small:
+                surface.blit(item.icon_small, (rect.x + 5, rect.y + 5))
+                text_x = rect.x + 36
+            else:
+                text_x = rect.x + 8
+
+            rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
+
+            if "qty" in inventory_entry:
+                name_text = f"{item.name} x{inventory_entry['qty']}"
+            else:
+                name_text = item.name
+
+            name_surface = self.font.render(name_text, True, rarity_color)
+            surface.blit(name_surface, (text_x, rect.y + 5))
+
+            price_surface = self.font.render(f"{sell_price}g", True, (255, 220, 100))
+            price_x = rect.right - price_surface.get_width() - 10
+            surface.blit(price_surface, (price_x, rect.y + 5))
+
+            self.item_rects.append((rect, {
+                "item": item,
+                "sell_price": sell_price,
+                "inventory_entry": inventory_entry
+            }))
+
+            y_offset += entry_height
+
+        self.max_scroll = max(0, total_height - (visible_bottom - visible_top))
+        surface.set_clip(None)
+
+    #draw scrollbar
+    def _draw_scrollbar(self, surface):
+        track_x = self.x + self.width - 14
+        track_y = self.y + 90
+        track_height = self.height - 140
+        track_rect = pygame.Rect(track_x, track_y, 8, track_height)
+
+        pygame.draw.rect(surface, (50, 50, 50), track_rect)
+
+        visible_height = self.height - 140
+
+        if self.mode == "buy":
+            total_height = len(self.items_for_sale) * 38
+        else:
+            total_height = len(self.get_sellable_items()) * 38
+
+        if total_height == 0:
+            return
+        
+        thumb_height = max(20, int((visible_height / total_height) * track_height))
 
         if self.max_scroll > 0:
-            #scrollbar track area (inside the panel)
-            track_x = self.x + self.width - 14
-            track_y = self.y + 40
-            track_height = self.height - 80
-            track_rect = pygame.Rect(track_x, track_y, 8, track_height)
+            scroll_ratio = self.scroll_offset / self.max_scroll
+        else:
+            scroll_ratio = 0
 
-            pygame.draw.rect(screen, (50, 50, 50), track_rect)
+        thumb_y = track_y + int(scroll_ratio * (track_height - thumb_height))
+        thumb_rect = pygame.Rect(track_x, thumb_y, 8, thumb_height)
 
-            #thumb size based on visible portion
-            visible_height = self.height - 60
-            thumb_height = max(20, int((visible_height / total_height) * track_height))
+        pygame.draw.rect(surface, (160, 160, 160), thumb_rect)
 
-            #thumb position based on scroll offset
-            if self.max_scroll > 0:
-                scroll_ratio = self.scroll_offset / self.max_scroll
-            else:
-                scroll_ratio = 0
+    #draw tooltips on hover
+    def _draw_tooltips(self, surface):
+        mouse_pos = pygame.mouse.get_pos()
 
-            thumb_y = track_y + int(scroll_ratio * (track_height - thumb_height))
-            thumb_rect = pygame.Rect(track_x, thumb_y, 8, thumb_height)
+        for rect, cached in self.item_rects:
+            if rect.collidepoint(mouse_pos):
+                item = cached["item"]
+                if item:
+                    self.draw_tooltip(surface, item, mouse_pos)
+                break
 
-            pygame.draw.rect(screen, (160, 160, 160), thumb_rect)
-
-            mouse_pos = pygame.mouse.get_pos()
-
-            for rect, cached in self.item_rects:
-                if rect.collidepoint(mouse_pos):
-                    item = cached["item"]
-                    if item:
-                        screen.set_clip(None)
-                        self.draw_tooltip(screen, item, mouse_pos)
-                    break
-
-        screen.set_clip(None)
-
-    def draw_tooltip(self, screen, item, mouse_pos):
+    def draw_tooltip(self, surface, item, mouse_pos):
         if not hasattr(item, "tooltip_surfaces"):
             return
 
@@ -757,27 +1033,42 @@ class VendorWindow:
         if y + height > SCREEN_HEIGHT:
             y = SCREEN_HEIGHT - height - 5      
 
-        pygame.draw.rect(screen, (20, 20, 20), (x, y, width + padding * 2, height + padding * 2))
-        pygame.draw.rect(screen, (180, 180, 180), (x, y, width + padding * 2, height + padding * 2), 1)
+        pygame.draw.rect(surface, (20, 20, 20), (x, y, width + padding * 2, height + padding * 2))
+        pygame.draw.rect(surface, (180, 180, 180), (x, y, width + padding * 2, height + padding * 2), 1)
 
         rarity_color = RARITY_COLORS.get(item.rarity, (255, 255, 255))
 
         name_surf = self.font.render(item.name, True, rarity_color)
-        screen.blit(name_surf, (x + padding, y + padding))
+        surface.blit(name_surf, (x + padding, y + padding))
 
         ry = y + padding + name_surf.get_height()
 
         for surf in item.tooltip_surfaces[1:]:
-            screen.blit(surf, (x + padding, ry))
+            surface.blit(surf, (x + padding, ry))
             ry += surf.get_height()
 
     def handle_click(self, pos):
+        #handle mouse clicks
+        if self.buy_tab_rect and self.buy_tab_rect.collidepoint(pos):
+            self.switch_mode("buy")
+            return True
+        
+        if self.sell_tab_rect and self.sell_tab_rect.collidepoint(pos):
+            self.switch_mode("sell")
+            return True
+        
+        if self.mode == "buy":
+            return self._handle_buy_click(pos)
+        else:
+            return self._handle_sell_click(pos)
+        
+    #handle buying an item
+    def _handle_buy_click(self, pos):
         for rect, cached in self.item_rects:
-            if rect.collidepoint(pos):                
-                
+            if rect.collidepoint(pos):
                 price = cached["price"]
                 item_id = cached["id"]
-                
+
                 if self.game.player.get_total_gold() < price:
                     print("[VENDOR] Not enough gold!")
                     return True
@@ -795,12 +1086,37 @@ class VendorWindow:
                 self.game.player.add_item(item_id, 1)
                 print(f"[VENDOR] Purchased {item_id} for {price} gold.")
                 return True
+            
+        return False
+    
+    #handle selling an item
+    def _handle_sell_click(self, pos):
+        for rect, data in self.item_rects:
+            if rect.collidepoint(pos):
+                item = data["item"]
+                sell_price = data["sell_price"]
+                inventory_entry = data["inventory_entry"]
+
+                self.game.player.gold += sell_price
+
+                if "qty" in inventory_entry:
+                    inventory_entry["qty"] -= 1
+                    if inventory_entry["qty"] <= 0:
+                        self.game.player.inventory.remove(inventory_entry)
+                else:
+                    self.game.player.inventory.remove(inventory_entry)
+
+                print(f"[VENDOR] Sold {item.name} for {sell_price} gold.")
+
+                if hasattr(self.game, 'inventory_window'):
+                    self.game.inventory_window.mark_dirty()
+
+                return True
+        
         return False
     
     def is_click_outside(self, pos):
-        x = SCREEN_WIDTH // 2 - self.width // 2
-        y = SCREEN_HEIGHT // 2 - self.height // 2
-        rect = pygame.Rect(x, y, self.width, self.height)
+        rect = pygame.Rect(self.x, self.y, self.width, self.height)
         return not rect.collidepoint(pos)
     
 class SpellbookWindow:
