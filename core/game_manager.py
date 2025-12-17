@@ -17,6 +17,8 @@ from pygame import gfxdraw
 import json
 from systems.bounty_system import BountyBoard, BountyTier
 from systems.bounty_ui import BountyBoardUI
+from core.save_system import SaveSystem
+from core.save_select_window import SaveSelectWindow
 
 
 class GameManager:
@@ -136,6 +138,14 @@ class GameManager:
             width = 700,
             height = 480
         )
+
+        #save system
+        self.save_system = SaveSystem()
+        self.save_select_window = SaveSelectWindow(self, self.save_system)
+
+        #autosave
+        self.autosave_timer = 0
+        self.autosave_interval = 300.0 #5 minutes in seconds
     
         self.spellbook_window = SpellbookWindow(
             self.player,
@@ -156,7 +166,7 @@ class GameManager:
         bottom_margin = 15
         gap = 12
 
-        buttons = ["Fight", "Gather", "Craft", "Bounties", "Inventory", "Shop"]
+        buttons = ["Fight", "Gather", "Craft", "Bounties", "Inventory", "Shop", "Save"]
         num_buttons = len(buttons)
         total_width = num_buttons * button_width + (num_buttons - 1) * gap
         start_x = (SCREEN_WIDTH - total_width) // 2
@@ -196,6 +206,11 @@ class GameManager:
             return surface
 
     def handle_event(self, event):
+        #save select window (highest priority)
+        if self.save_select_window.visible:
+            if self.save_select_window.handle_event(event):
+                return
+
         # --- GLOBAL MODAL WINDOWS / OVERLAYS FIRST ---
         
         # Inventory window captures all mouse input when open
@@ -492,8 +507,8 @@ class GameManager:
             
             if self.load_button.collidepoint(event.pos):
                 print("Load Game Clicked")
-                #load logic not implemented yet
-                self.state = "home"
+                #open save selection window
+                self.save_select_window.open()
                 return True
         return False
     
@@ -524,6 +539,22 @@ class GameManager:
                     self.state = "vendor"
                     print("[UI] Entering vendor screen")
                     return True
+
+                elif text == "Save":
+                    game_state = {
+                        'monster_page': self.current_monster_page,
+                        'current_monster': self.current_monster.name if self.current_monster else None,
+                    }
+
+                    save_path = self.save_system.save_game(self.player, game_state)
+
+                    if save_path:
+                        print("[UI] ✅ Game saved successfully!")
+                    else:
+                        print("[UI] ❌ Save failed!")
+                    
+                    return True
+
         return False
     
     def _handle_creature_select_events(self, event):
@@ -706,6 +737,23 @@ class GameManager:
 
             self.monster_defeated = False
 
+        # ============ AUTOSAVE SYSTEM ============
+        #only autosave during actual gameplay
+        if self.state in ["home" , "combat", "creature_select"]:
+            self.autosave_timer += dt
+
+            if self.autosave_timer >= self.autosave_interval:
+                self.autosave_timer = 0
+
+                game_state = {
+                    'monster_page': self.current_monster_page,
+                    'current_monster': self.current_monster.name if self.current_monster else None,
+                }
+
+                autosave_path = self.save_system.autosave(self.player, game_state)
+
+                if autosave_path:
+                    print("[AUTOSAVE] ✅ Game autosaved")
 
     def draw(self):
         if self.state == "title":
@@ -735,6 +783,10 @@ class GameManager:
 
         fps_text = self.fps_font.render(f"FPS: {fps}", True, fps_color)
         self.screen.blit(fps_text, (10, 60))
+
+        #save select window
+        if self.save_select_window.visible:
+            self.save_select_window.draw(self.screen)
 
     def draw_title(self):
         self.screen.blit(self.title_image, (0, 0))

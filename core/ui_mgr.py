@@ -145,11 +145,21 @@ class InventoryWindow:
         #draw panel background
         screen.blit(self.panel_surface, (x, y))
 
-        #draw fixed header (title and gold) - not scrolled
+        #draw fixed header (title, bounty points and gold) - not scrolled
         title = self.font.render("Inventory", True, self.text_color)
         screen.blit(title, (x + 10, y + 10))
 
+        #gold text (so bounty points has width)
         gold_text = self.font.render(f"Gold: {self.game.player.gold}", True, (255, 215, 0))
+
+        #bounty points (left of gold)
+        if not hasattr(self.game.player, 'bounty_points'):
+            self.game.player.bounty_points = 0
+        bounty_text = self.font.render(f"Bounty Points: {self.game.player.bounty_points}", True, (200, 100, 255))
+        bounty_x = x + self.width - gold_text.get_width() - bounty_text.get_width() - 40
+        screen.blit(bounty_text, (bounty_x, y+ 10))
+
+        #draw gold (right of bounty)
         screen.blit(gold_text, (x + self.width - gold_text.get_width() - 20, y + 10))
         
         #set up clipping area for scrollable content
