@@ -28,7 +28,7 @@ class Player:
 
         self.equipment = {
             "head": None,
-            "necke": None,
+            "neck": None,
             "back": None,
             "chest": None,
             "legs": None,

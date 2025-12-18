@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "1.0",
-    "save_date": "2025-12-17T15:25:20.638953",
+    "save_date": "2025-12-17T15:49:12.538937",
     "character_name": "Bjorn2",
     "level": 1,
     "playertime": 0
@@ -9,8 +9,8 @@
   "player": {
     "name": "Bjorn2",
     "level": 1,
-    "exp": 0,
-    "gold": 100,
+    "exp": 5,
+    "gold": 103,
     "stat_points": 0,
     "stats": {
       "base_strength": 5,
@@ -24,7 +24,38 @@
       "auto_combat": false
     },
     "bounty_points": 0,
-    "inventory": [],
+    "inventory": [
+      {
+        "type": "unique",
+        "item_data": {
+          "id": "goblin_chain_mail",
+          "name": "Goblin Chain Mail",
+          "type": "Armor",
+          "enhancements": [],
+          "used_slots": 0,
+          "enhancement_slots": 4,
+          "rolled_armor": 5,
+          "rolled_stats": {
+            "max_hp": 6
+          }
+        }
+      },
+      {
+        "type": "unique",
+        "item_data": {
+          "id": "basic_training_axe",
+          "name": "Basic Training Axe",
+          "type": "Weapon",
+          "enhancements": [],
+          "used_slots": 0,
+          "enhancement_slots": 3,
+          "rolled_armor": null,
+          "rolled_stats": {
+            "strength": 2
+          }
+        }
+      }
+    ],
     "equipment": {
       "head": null,
       "necke": null,
@@ -40,9 +71,23 @@
     "active_effects": []
   },
   "game_state": {
-    "current_monster": null,
+    "current_monster": "Goblin",
     "monster_page": 0,
     "playtime": 0,
-    "bounties": []
+    "bounties": [
+      {
+        "id": 0,
+        "tier": "EASY",
+        "monster_name": "Goblin",
+        "target_count": 9,
+        "current_count": 0,
+        "is_completed": false,
+        "reward": {
+          "experience": 90,
+          "gold": 45,
+          "bounty_points": 1
+        }
+      }
+    ]
   }
 }

@@ -1,189 +1,39 @@
 {
   "metadata": {
     "version": "1.0",
-    "save_date": "2025-12-17T15:33:00.433247",
+    "save_date": "2025-12-17T19:01:06.229197",
     "character_name": "Bjorn",
-    "level": 5,
+    "level": 6,
     "playertime": 0
   },
   "player": {
     "name": "Bjorn",
-    "level": 5,
-    "exp": 750,
-    "gold": 3501,
+    "level": 6,
+    "exp": 900,
+    "gold": 3843,
     "stat_points": 0,
     "stats": {
-      "base_strength": 16,
+      "base_strength": 21,
       "base_dexterity": 8,
       "base_constitution": 5,
       "base_intelligence": 8,
-      "hp": 501,
+      "hp": 519,
       "mp": 115
     },
     "unlocks": {
       "auto_combat": true
     },
-    "bounty_points": 1,
+    "bounty_points": 2,
     "inventory": [
       {
         "type": "stackable",
         "id": "health_potion_small",
-        "qty": 37
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 5,
-          "rolled_stats": {
-            "max_hp": 6
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_axe",
-          "name": "Basic Training Axe",
-          "type": "Weapon",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 3,
-          "rolled_armor": null,
-          "rolled_stats": {
-            "max_hp": 15
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 5,
-          "rolled_stats": {
-            "max_hp": 5
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_axe",
-          "name": "Basic Training Axe",
-          "type": "Weapon",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 3,
-          "rolled_armor": null,
-          "rolled_stats": {
-            "strength": 2
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 4,
-          "rolled_stats": {
-            "max_hp": 9
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_axe",
-          "name": "Basic Training Axe",
-          "type": "Weapon",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 3,
-          "rolled_armor": null,
-          "rolled_stats": {
-            "strength": 1
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 3,
-          "rolled_stats": {
-            "constitution": 2
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_axe",
-          "name": "Basic Training Axe",
-          "type": "Weapon",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 3,
-          "rolled_armor": null,
-          "rolled_stats": {
-            "constitution": 2
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 5,
-          "rolled_stats": {
-            "strength": 3
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_axe",
-          "name": "Basic Training Axe",
-          "type": "Weapon",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 3,
-          "rolled_armor": null,
-          "rolled_stats": {
-            "strength": 1
-          }
-        }
+        "qty": 38
       }
     ],
     "equipment": {
       "head": null,
-      "necke": null,
+      "neck": null,
       "back": null,
       "chest": {
         "id": "goblin_chain_mail",
@@ -202,7 +52,8 @@
       "weapon": null,
       "offhand": null,
       "ring1": null,
-      "ring2": null
+      "ring2": null,
+      "necke": null
     },
     "active_effects": []
   },
@@ -210,20 +61,6 @@
     "current_monster": "Goblin",
     "monster_page": 0,
     "playtime": 0,
-    "bounties": [
-      {
-        "id": 0,
-        "tier": "EASY",
-        "monster_name": "Goblin",
-        "target_count": 9,
-        "current_count": 4,
-        "is_completed": false,
-        "reward": {
-          "experience": 90,
-          "gold": 45,
-          "bounty_points": 1
-        }
-      }
-    ]
+    "bounties": []
   }
 }

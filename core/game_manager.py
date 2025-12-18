@@ -20,6 +20,7 @@ from systems.bounty_ui import BountyBoardUI
 from core.save_system import SaveSystem
 from core.save_select_window import SaveSelectWindow
 from core.character_creation_window import CharacterCreationWindow
+from core.window_manager import WindowManager, GameWindow
 
 
 class GameManager:
@@ -35,7 +36,7 @@ class GameManager:
         #load monster select backgrounds (with fallback system)
         self.monster_select_backgrounds = {}
         #try to load page-specific backgrounds, fall back to default
-        for i in range(10): #supports (10 for now) pages
+        for i in range(2): #supports (2 for now) pages
             bg_name = f"mon_bg{i + 1}.png"
             bg = self.load_image(bg_name)
             if bg:
@@ -45,8 +46,8 @@ class GameManager:
         if not self.monster_select_backgrounds:
             default_bg = self.load_image("mon_bg1.png")
             if default_bg:
-                #use efault for pages 0-9
-                for i in range(10):
+                #use default for pages 0-2
+                for i in range(2):
                     self.monster_select_backgrounds[i] = default_bg
 
         self.loot_system = LootSystem()
@@ -70,39 +71,6 @@ class GameManager:
             self.ability_data = json.load(f)
 
         self.load_ability_icons()
-        
-    def load_ability_icons(self):
-        #load all ability icons defined in abilities.json
-        abilities_path = os.path.join("data", "abilities.json")
-
-        try:
-            with open(abilities_path, "r") as f:
-                abilities = json.load(f)
-
-            for ability_id, ability_data in abilities.items():
-                icon_filename = ability_data.get("icon")
-                if icon_filename:
-                    icon_path = os.path.join("assets", "images", icon_filename)
-                    if os.path.exists(icon_path):
-                        img = pygame.image.load(icon_path). convert_alpha()
-                        img = pygame.transform.scale(img, (26, 26))
-                        self.buff_icons[ability_id] = img
-                    else:
-                        print(f"[WARNING] Icon missing for {ability_id}: {icon_path}")
-        except FileNotFoundError:
-            print("[WARNING] abilities.json not found - no abilitiy icons loaded")
-        
-        def load_icon(name, filename):
-            path = os.path.join("assets", "images", filename)
-            if os.path.exists(path):
-                img = pygame.image.load(path).convert_alpha()
-                img = pygame.transform.scale(img, (26, 26))
-                self.buff_icons[name.lower()] = img
-            else:
-                print(f"[WARNING] Buff icon missing: {path}")
-        
-        load_icon("burn", "burn_debuff1.png")
-        load_icon("poison", "poison_debuff1.png")      
 
         self.combat_bg = pygame.image.load("assets/images/combat_bg1.png").convert_alpha()
         self.combat_bg = pygame.transform.scale(self.combat_bg, (SCREEN_WIDTH, SCREEN_HEIGHT - 52))
@@ -225,6 +193,139 @@ class GameManager:
         self.start_button = pygame.Rect(100, 650, 200, 50)
         self.load_button = pygame.Rect(500, 650, 200, 50)
 
+        self.init_window_manager()
+
+    def init_window_manager(self):
+        self.window_manager = WindowManager()
+
+
+        #highest priority
+        self.window_manager.register(GameWindow(
+            name = "character_creation",
+            wrapped_window = self.character_creation_window,
+            priority = 100,
+            modal = True,
+            handle_event_fn = lambda e: self.character_creation_window.handle_event(e) if self.character_creation_window.visible else False
+        ))
+
+        self.window_manager.register(GameWindow(
+            name = "save_select",
+            wrapped_window = self.save_select_window,
+            priority = 100,
+            modal = True,
+            handle_event_fn = lambda e: self.save_select_window.handle_event(e) if self.save_select_window.visible else False
+        ))
+
+        #high priority
+        self.window_manager.register(GameWindow(
+            name = "enhancement_confirmation",
+            wrapped_window = self.enhancement_confirmation,
+            priority = 90,
+            modal = True,
+            handle_event_fn = lambda e: self._handle_enhancement_confirmation_event(e)
+        ))
+
+        #medium-high priority
+        self.window_manager.register(GameWindow(
+            name = "levelup",
+            wrapped_window = self.levelup_window,
+            priority = 80,
+            modal = False,
+            handle_event_fn = lambda e: self._handle_levelup_events(e)
+        ))
+
+        self.window_manager.register(GameWindow(
+            name = "spellbook",
+            wrapped_window = self.spellbook_window,
+            priority = 70,
+            modal = False,
+            handle_event_fn = lambda e: self._handle_spellbook_event(e)
+        ))
+
+        self.window_manager.register(GameWindow(
+            name = "character",
+            wrapped_window = self.character_window,
+            priority = 70,
+            modal = False,
+            handle_event_fn = lambda e: self._handle_character_window_events(e)
+        ))
+
+        #medium priority
+        self.window_manager.register(GameWindow(
+            name = "inventory",
+            wrapped_window = self.inventory_window,
+            priority = 60,
+            modal = False,
+            handle_event_fn = lambda e: self._handle_inventory_events(e),
+            get_visible = lambda: self.show_inventory,
+            set_visible = lambda v: setattr(self, 'show_inventory', v)
+        ))
+
+        self.window_manager.register(GameWindow(
+            name = "vendor",
+            wrapped_window = self.vendor_window,
+            priority = 60,
+            modal = False,
+            handle_event_fn = lambda e: self._handle_vendor_events(e),
+            get_visible = lambda: self.state == "vendor",
+            set_visible = lambda v: setattr(self, 'state', 'vendor' if v else 'home')
+        ))
+
+        self.window_manager.register(GameWindow(
+            name = "bounty",
+            wrapped_window = self.bounty_ui,
+            priority = 60,
+            modal = False,
+            handle_event_fn = lambda e: self._handle_bounty_events(e),
+            get_visible = lambda: self.bounty_ui.is_visible,
+            set_visible = lambda v: setattr(self.bounty_ui, 'is_visible', v)
+        ))
+
+        #lower priority
+        self.window_manager.register(GameWindow(
+            name = "combat",
+            wrapped_window = None, #combat is handled differently
+            priority = 50,
+            modal = False,
+            handle_event_fn = lambda e: self._handle_combat_events(e) if self.state == "combat" else False,
+            get_visible = lambda: self.state == "combat"
+        ))
+        
+    def load_ability_icons(self):
+        #load all ability icons defined in abilities.json
+        abilities_path = os.path.join("data", "abilities.json")
+
+        try:
+            with open(abilities_path, "r") as f:
+                abilities = json.load(f)
+
+            for ability_id, ability_data in abilities.items():
+                icon_filename = ability_data.get("icon")
+                if icon_filename:
+                    icon_path = os.path.join("assets", "images", icon_filename)
+                    if os.path.exists(icon_path):
+                        img = pygame.image.load(icon_path). convert_alpha()
+                        img = pygame.transform.scale(img, (26, 26))
+                        self.buff_icons[ability_id] = img
+                    else:
+                        print(f"[WARNING] Icon missing for {ability_id}: {icon_path}")
+        except FileNotFoundError:
+            print("[WARNING] abilities.json not found - no abilitiy icons loaded")
+        
+        def load_icon(name, filename):
+            path = os.path.join("assets", "images", filename)
+            if os.path.exists(path):
+                img = pygame.image.load(path).convert_alpha()
+                img = pygame.transform.scale(img, (26, 26))
+                self.buff_icons[name.lower()] = img
+            else:
+                print(f"[WARNING] Buff icon missing: {path}")
+        
+        load_icon("burn", "burn_debuff1.png")
+        load_icon("poison", "poison_debuff1.png")      
+
+        
+
     def load_image(self, filename):
         path = os.path.join("assets", "images", filename)
         if os.path.exists(path):
@@ -237,74 +338,52 @@ class GameManager:
             surface.fill(BLACK)
             return surface
 
+    #route events through window manager for proper priority handling
     def handle_event(self, event):
-        if self.character_creation_window.visible:
-            if self.character_creation_window.handle_event(event):
-                return
-
-        #save select window (highest priority)
-        if self.save_select_window.visible:
-            if self.save_select_window.handle_event(event):
-                return
-
-        # --- GLOBAL MODAL WINDOWS / OVERLAYS FIRST ---
-        
-        # Inventory window captures all mouse input when open
-        if self.show_inventory and event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
-            if self._handle_inventory_events(event):
-                return
+        #let window manager handle the event first
+        if self.window_manager.handle_event(event):
+            return #event was consumed by a window
             
-        if self.bounty_ui.is_visible and event.type == pygame.MOUSEBUTTONDOWN:
-            if self._handle_bounty_events(event):
-                return
-            
-        #keyboard shortcuts
+        #keyboard shortcuts (global, not consumed by windows)
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_c:
                 self.character_window.toggle()
-
-        #character window click handling
-        if self.character_window.visible and event.type == pygame.MOUSEBUTTONDOWN:
-            if self._handle_character_window_events(event):
-                return
-            
-        #Level up window click handling
-        if self.levelup_window.visible and event.type == pygame.MOUSEBUTTONDOWN:
-            if self._handle_levelup_events(event):
                 return
             
         #State specific handling
-
-        if self.state == "vendor":
-            if self._handle_vendor_events(event):
-                return
-            
-        elif self.state == "combat":
-            if self._handle_combat_events(event):
-                return
-            
-        elif self.state == "title":
-            if self._handle_title_events(event):
-                return
-        
+        if self.state == "title":
+            self._handle_title_events(event)
         elif self.state == "home":
-            if self._handle_home_events(event):
-                return
-            
+            self._handle_home_events(event)
         elif self.state == "creature_select":
-            if self._handle_creature_select_events(event):
-                return
+            self._handle_creature_select_events(event)
+
+    #handle enhancement confirmation window events
+    def _handle_enhancement_confirmation_event(self, event):
+        if not self.enhancement_confirmation.visible:
+            return False
+        
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            return self.enhancement_confirmation.click(event.pos)
+        
+        return False
+    
+    #handle spellbook window events
+    def _handle_spellbook_event(self, event):
+        if not self.spellbook_window.visible:
+            return False
+        
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            return self.spellbook_window.handle_click(event.pos)
+        
+        return False
             
-        #spellbook window (global overlay)
-
-        if self.spellbook_window.visible and event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                if self.spellbook_window.handle_click(event.pos):
-                    return
-
+    #handle bounty board events
     def _handle_bounty_events(self, event):
-        #handle clicks on the bounty board ui
-        if event.button != 1:
+        if not self.bounty_ui.is_visible:
+            return False
+
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
             return False
         
         #click outside to close
@@ -345,11 +424,11 @@ class GameManager:
         return True
 
     def _handle_inventory_events(self, event):
-        #enhancement confirmation takes priority
-        if self.enhancement_confirmation.visible and event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1: #left click
-                if self.enhancement_confirmation.click(event.pos):
-                    return True
+        if not self.show_inventory:
+            return False
+        
+        if event.type not in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+            return False
 
         #mouse wheel scrolling
         if event.type == pygame.MOUSEBUTTONDOWN:
@@ -361,13 +440,13 @@ class GameManager:
                 self.inventory_window.scroll_offset = min(self.inventory_window.max_scroll, self.inventory_window.scroll_offset + self.inventory_window.scroll_speed)
                 return True
             
-            #left click down - start drag or handle click
-            if event.button == 1:
-                #check if click is outside (close inventory)
-                if self.inventory_window.click_outside(event.pos):
+            #check if click is outside (close inventory)
+            if self.inventory_window.click_outside(event.pos):
                     self.show_inventory = False
                     return True
-                
+          
+            #click is inside - start drag or handle click
+            if event.button == 1:            
                 #click inside - start drag
                 self.inventory_window.click(event.pos, event.button)
                 return True
@@ -386,14 +465,19 @@ class GameManager:
         return True
 
     def _handle_character_window_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN:
+            return False
+        
         if event.button == 1:
             if self.character_window.handle_click(event.pos):
                 return True
         return False
     
     def _handle_levelup_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN:
+            return False
+        
         if event.button == 1:
-
             #check if click is inside window
             window_rect = pygame.Rect(self.levelup_window.x, self.levelup_window.y, self.levelup_window.width, self.levelup_window.height)
 
