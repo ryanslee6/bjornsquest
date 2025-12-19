@@ -510,7 +510,7 @@ class GameManager:
                 return True
             
             if self.vendor_window and self.vendor_window.is_click_outside(event.pos):
-                print("[UI] Exiting vnedor screen")
+                print("[UI] Exiting vendor screen")
                 self.state = "home"
                 return True
             
@@ -579,6 +579,10 @@ class GameManager:
             
                 elif label == "Spells":
                     self.show_spell_bar = not self.show_spell_bar
+                    if not self.show_spell_bar:
+                        if self.spellbook_window.visible:
+                            self.spellbook_window.toggle()
+                        self.selected_spell_slot = None
                     return True
                 
                 elif label == "Use Item":
@@ -600,20 +604,32 @@ class GameManager:
                 if rect.collidepoint(pos):
 
                     if label == "Spellbook":
-                        self.spellbook_window.toggle()
+                        if not self.spellbook_window.visible:
+                            #opening spellbook
+                            self.spellbook_window.toggle()
+                            self.selected_spell_slot = None
+                        else:
+                            #closing spellbook
+                            self.spellbook_window.toggle()
+                            self.selected_spell_slot = None
                         return True
                     
                     if label.startswith("Slot"):
                         slot_index = int(label.split(" ")[1])
-                        self.selected_spell_slot = slot_index
 
                         if self.spellbook_window.visible:
+                            self.selected_spell_slot = slot_index
                             self.spellbook_window.selected_slot = slot_index
                             print(f"[UI] Selected slot {slot_index} for assignment")
                         else:
                             spell = self.spell_slots.get(slot_index)
                             if spell:
                                 self.combat.cast_spell(spell.name)
+                            else:
+                                #no spell in this slot - open spellbook in assignement mode
+                                self.selected_spell_slot = slot_index
+                                self.spellbook_window.toggle(slot_index)
+                                print(f"[UI] Opening spellbook to assign spell to slot {slot_index}")
 
                         return True
         return False

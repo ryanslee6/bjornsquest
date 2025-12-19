@@ -1126,149 +1126,284 @@ class SpellbookWindow:
         self.on_assign_callback = on_assign_callback
         self.visible = False
 
-        self.width = 775
-        self.height = 550
-        self.x = 5
-        self.y = 40
-        self.bg_color = (20, 20, 20)
-        self.border_color = (100, 100, 100)
+        #window dimensions
+        self.width = 500
+        self.height = 570
+        self.x = SCREEN_WIDTH // 2 - self.width // 2
+        self.y = SCREEN_HEIGHT // 2 - self.height // 2
+        
+        #colors
+        self.bg_color = (30, 30, 40)
+        self.border_color = (150, 150, 150)
+        self.header_color = (200, 150, 50)
+        self.spell_bg_color = (45, 45, 55)
+        self.spell_hover_color = (80, 120, 180)
+        self.spell_selected_color = (80, 120, 180)
 
+        #fonts
+        self.title_font = pygame.font.Font(None, 32)
         self.font = pygame.font.Font(None, 24)
-        self.title_font = pygame.font.Font(None, 30)
+        self.small_font = pygame.font.Font(None, 20)
 
-        self.spellbook_bg = pygame.image.load(os.path.join("assets", "images", "spell_book.png")).convert_alpha()
-        self.rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        #Pagination
+        self.current_page = 0
+        self.spells_per_page = 6
 
-        self.spellbook_bg = pygame.transform.scale(self.spellbook_bg, (self.width, self.height))
-
+        #selection state
         self.selected_slot = None
-    
 
+        #icon placeholder surface (spells without icons)
+        self.placeholder_icon = self.create_placeholder_icon()
+
+        #store spell rects for click detection
+        self.spell_rects = []
+        self.prev_button_rect = None
+        self.next_button_rect = None  
+
+    #create placeholder icon for spells without custom icons
+    def create_placeholder_icon(self):
+        size = 48
+        surface = pygame.Surface((size, size), pygame.SRCALPHA)
+
+        #draw a simple circle as placeholder
+        pygame.draw.circle(surface, (100, 100, 200), (size // 2, size // 2), size // 2 - 2, 2)
+        pygame.draw.circle(surface, (150, 150, 255), (size // 2, size // 2), size // 3, 1)
+
+        #draw star in center
+        center_x, center_y = size // 2, size // 2
+        points = []
+        for i in range(5):
+            angle = i * 144 - 90 #144 degrees between points, starts at top
+            import math
+            x = center_x + int(size // 4 * math.cos(math.radians(angle)))
+            y = center_y + int(size // 4 * math.sin(math.radians(angle)))
+            points.append((x, y))
+
+        pygame.draw.polygon(surface, (200, 200, 255), points, 0)
+
+        return surface
+    
+    #calculate total number of pages needed
+    def get_total_pages(self):
+        import math
+        return max(1, math.ceil(len(self.spellbook) / self.spells_per_page))
+    
+    #get the spells for the current page
+    def get_current_page_spells(self):
+        start_idx = self.current_page * self.spells_per_page
+        end_idx = start_idx + self.spells_per_page
+        return self.spellbook[start_idx:end_idx]
+
+    #toggle spellbook visibility and manage selection state
     def toggle(self, slot_index = None):
         was_visible = self.visible
         self.visible = not self.visible
-        #self.selected_slot = slot_index if self.visible else None
         
-        if self.visible and slot_index is not None:
-            self.selected_slot = slot_index
+        if self.visible:
+            if slot_index is not None:
+                self.selected_slot = slot_index
+                print(f"📖 Spellbook opened for slot assignment (slot={slot_index})")
+            else:
+                self.selected_slot = None
+                print(f"📖 Spellbook opened (browsing mode)")   
         else:
             self.selected_slot = None
+            if hasattr(self.player, 'game') and hasattr(self.player.game, "selected_spell_slot"):
+                self.player.game.selected_spell_slot = None
+            print(f"📖 Spellbook closed (selection cleared)")
         
-        print(f"📖 Spellbook {'opened' if self.visible else 'closed'} (slot={slot_index})")
-        
-        if not self.visible and hasattr(self.player.game, "selected_spell_slot"):
-            self.player.game.selected_spell_slot = None
-
     def draw(self, surface):
         if not self.visible:
             return
 
-        surface.blit(self.spellbook_bg, self.rect.topleft)
+        #draw background panel
+        panel_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        pygame.draw.rect(surface, self.bg_color, panel_rect, border_radius = 8)
+        pygame.draw.rect(surface, self.border_color, panel_rect, 2, border_radius = 8)
 
-        title_offset_x = 490
-        title_offset_y = 125
+        #draw title
+        title_text = self.title_font.render("Spellbook", True, self.header_color)
+        title_rect = title_text.get_rect(centerx = self.x + self.width // 2, top = self.y + 15)
+        surface.blit(title_text, title_rect)
 
-        self.draw_outlined_text(
-            surface,
-            "Spellbook",
-            self.title_font,
-            color = (255, 255, 255),
-            outline_color = (0, 0, 0),
-            pos = (self.x + title_offset_x, self.y + title_offset_y),
-            outline_px = 2
-        )
-      
-
-        padding_x = 425
-        padding_top = 180
-        row_height = 34
-
-        start_y = self.y + padding_top
-
-        for i, spell in enumerate(self.spellbook):
-            text_x = self.x + padding_x
-            text_y = start_y + i * row_height
-
-            rect = self.draw_outlined_text(
-                surface,
-                spell.name,
-                self.font,
-                color = (255, 255, 255),
-                outline_color = (0, 0, 0),
-                pos = (text_x, text_y),
-                outline_px = 1
+        #Draw slot assignement instruction if a slot is selected
+        if self.selected_slot is not None:
+            instruction = self.small_font.render(
+                f"Select a spell to assign to Slot {self.selected_slot}",
+                True,
+                (200, 200, 200)
             )
+            instruction_rect = instruction.get_rect(centerx = self.x + self.width // 2, top = self.y + 55)
+            surface.blit(instruction, instruction_rect)
+            content_start_y = self.y + 90
+        else:
+            content_start_y = self.y + 60
 
-            row_rect = rect.inflate(14, 10)
+        #draw spells for current page
+        self.spell_rects = []
+        current_spells = self.get_current_page_spells()
 
-            #base background
-            bg = pygame.Surface(row_rect.size, pygame.SRCALPHA)
-            bg.fill((20, 20, 30, 140)) #translucent dark backing
-            surface.blit(bg, row_rect.topleft)
+        spell_height = 70
+        spell_spacing = 10
+        spell_width = self.width - 40
 
-            #border
-            pygame.draw.rect(surface, (120, 120, 150), row_rect, 1)
+        for i, spell in enumerate(current_spells):
+            spell_y = content_start_y + i * (spell_height + spell_spacing)
+            spell_rect = pygame.Rect(self.x + 20, spell_y, spell_width, spell_height)
 
-            #hover hightlight
-            if row_rect.collidepoint(pygame.mouse.get_pos()):
-                hover = pygame.Surface(row_rect.size, pygame.SRCALPHA)
-                hover.fill((80, 80, 120, 90))
-                surface.blit(hover, row_rect.topleft)
+            #check if mouse is hovering
+            mouse_pos = pygame.mouse.get_pos()
+            is_hovering = spell_rect.collidepoint(mouse_pos)
 
-            spell.click_rect = row_rect
+            #check if spell is already equipped
+            is_equipped = self.is_spell_equipped(spell)
 
+            #determine background color
+            if is_equipped:
+                bg_color = self.spell_selected_color
+            elif is_hovering:
+                bg_color = self.spell_hover_color
+            else:
+                bg_color = self.spell_bg_color
+
+            #draw spell background
+            pygame.draw.rect(surface, bg_color, spell_rect, border_radius = 6)
+            pygame.draw.rect(surface, self.border_color, spell_rect, 2, border_radius = 6)
+
+            #draw spell icon (placeholder for now)
+            icon_x = spell_rect.x + 10
+            icon_y = spell_rect.y + (spell_rect.height - 48) // 2
+            surface.blit(self.placeholder_icon, (icon_x, icon_y))
+
+            #draw spell name
+            name_text = self.font.render(spell.name, True, (255, 255, 255))
+            name_x = icon_x + 58
+            name_y = spell_rect.y + 10
+            surface.blit(name_text, (name_x, name_y))
+
+            #draw spell info
+            info_lines = [
+                f"MP: {spell.mana_cost}  |  CD: {spell.cooldown}s",
+                f"Damage: {spell.power}"
+            ]
+
+            info_y = name_y + 22
+            for info_line in info_lines:
+                info_text = self.small_font.render(info_line, True, (180, 180, 180))
+                surface.blit(info_text, (name_x, info_y))
+                info_y += 18
+
+            #store rect for click detection
+            self.spell_rects.append((spell_rect, spell))
+
+        #draw pagination buttons
+        self.draw_pagination_buttons(surface)
+
+        #draw close instructions
+        close_text = self.small_font.render("Click outside to close", True, (160, 160, 160))
+        surface.blit(close_text, (self.x + 10, self.y + self.height - 25))
+
+        #draw tooltip if hovering over a spell
         mouse_pos = pygame.mouse.get_pos()
-        for spell in self.spellbook:
-            if hasattr(spell, "click_rect") and spell.click_rect.collidepoint(mouse_pos):
+        for spell_rect, spell in self.spell_rects:
+            if spell_rect.collidepoint(mouse_pos):
                 self.draw_spell_tooltip(surface, spell, mouse_pos)
                 break
 
-    def draw_outlined_text(
-            self,
-            surface,
-            text,
-            font,
-            color,
-            outline_color,
-            pos,
-            outline_px = 1
-    ):
-        base = font.render(text, True, color)
-        outline = font.render(text, True, outline_color)
+    #draw previous/next page buttons
+    def draw_pagination_buttons(self, surface):
+        total_pages = self.get_total_pages()
 
-        x, y = pos
+        if total_pages <= 1:
+            return #no pagination needed
+        
+        button_width = 100
+        button_height = 35
+        button_y = self.y + self.height - 70
 
-        #draw outline (4 direction)
-        surface.blit(outline, (x - outline_px, y))
-        surface.blit(outline, (x + outline_px, y))
-        surface.blit(outline, (x, y - outline_px))
-        surface.blit(outline, (x, y + outline_px))
+        #previous button (only show if not on first page)
+        if self.current_page > 0:
+            prev_x = self.x + 20
+            self.prev_button_rect = pygame.Rect(prev_x, button_y, button_width, button_height)
 
-        #draw main text
-        surface.blit(base, (x, y))
+            pygame.draw.rect(surface, (50, 80, 150), self.prev_button_rect, border_radius = 5)
+            pygame.draw.rect(surface, (100, 140, 200), self.prev_button_rect, 2, border_radius = 5)
 
-        return base.get_rect(topleft = pos)
+            prev_text = self.font.reder("Previous", True, (255, 255, 255))
+            prev_text_rect = prev_text.get_rect(center = self.prev_button_rect.center)
+            surface.blit(prev_text, prev_text_rect)
+        else:
+            self.prev_button_rect = None
 
+        #page indicator
+        page_text = self.small_font.render(
+            f"Page {self.current_page + 1} / {total_pages}",
+            True,
+            (200, 200, 200)
+        )
+        page_text_rect = page_text.get_rect(centerx = self.x + self.width // 2, centery = button_y + button_height // 2)
+        surface.blit(page_text, page_text_rect)
+
+        #next button (only show if not on last page)
+        if self.current_page < total_pages - 1:
+            next_x = self.x + self.width - button_width - 20
+            self.next_button_rect = pygame.Rect(next_x, button_y, button_width, button_height)
+
+            pygame.draw.rect(surface, (50, 80, 150), self.next_button_rect, border_radius = 5)
+            pygame.draw.rect(surface, (100, 140, 200), self.next_button_rect, 2, border_radius = 5)
+
+            next_text = self.font.render("Next →", True, (255, 255, 255))
+            next_text_rect = next_text.get_rect(center = self.next_button_rect.center)
+            surface.blit(next_text, next_text_rect)
+        else:
+            self.next_button_rect = None
+
+    #check if a spell is currently equipped in any slot
+    def is_spell_equipped(self, spell):
+        if hasattr(self.player.game, "spell_slots"):
+            for slot, equipped_spell in self.player.game.spell_slots.items():
+                if equipped_spell.name == spell.name:
+                    return True
+        return False
+    
     def handle_click(self, pos):
         if not self.visible:
             return False
         
-        for i, spell in enumerate(self.spellbook):
-            if hasattr(spell, "click_rect") and spell.click_rect.collidepoint(pos):
+        #check if click is outside the window - close and clear selection
+        window_rect = pygame.Rect(self.x, self.y, self.width, self.height)
+        if not window_rect.collidepoint(pos):
+            self.toggle()
+            return True
+        
+        #check pagination buttons
+        if self.prev_button_rect and self.prev_button_rect.collidepoint(pos):
+            self.current_page = max(0, self.current_page - 1)
+            return True
+        
+        if self.next_button_rect and self.next_button_rect.collidepoint(pos):
+            self.current_page = min(self.get_total_pages() - 1, self.current_page + 1)
+            return True
+
+        #check spell selections
+        for spell_rect, spell in self.spell_rects:
+            if spell_rect.collidepoint(pos):
                 if self.selected_slot is None:
                     print(f"[INFO] Clicked {spell.name}, but no slot is selected.")
-                    return True   
+                    return True
                 
                 print(f"🪄 Selected {spell.name} for Slot {self.selected_slot}")
                 if self.on_assign_callback:
                     self.on_assign_callback(self.selected_slot, spell)
-                             
+
                 self.toggle(None)
                 return True
-        return False
+            
+        #click was inside window buyt on on any interactive element 
+        return True
     
+    #draw detailed tooltip for a spell
     def draw_spell_tooltip(self, surface, spell, mouse_pos):
-        #print(f"[UI DEBUG] Tooltip surface id={id(surface)}")
         equipped_slot = None
         #find which slot spell is assigned to (if any)
         if hasattr(self.player.game, "spell_slots"):
@@ -1276,34 +1411,67 @@ class SpellbookWindow:
                 if s.name == spell.name:
                     equipped_slot = slot
                     break
+
         lines = [
             f"{spell.name}",
             f"MP Cost: {spell.mana_cost}",
             f"Cooldown: {spell.cooldown // 1000}s",
             f"Damage: {getattr(spell, 'power', '?')}",
+            f"Element: {spell.element}"
         ]
+
         if equipped_slot:
             lines.append(f"Equipped to Slot {equipped_slot}")
         else:
             lines.append("Not equipped")
 
-        font = pygame.font.Font(None, 22)
+        font = self.small_font
         padding = 8
-        width = max(font.size(line)[0] for line in lines) + padding * 2
-        height = len(lines) * 22 + padding * 2
-        x, y = mouse_pos
-        
-        screen_w, screen_h = surface.get_size()
-        x = min(x, screen_w - width - 15)
-        y = min(y, screen_h - height - 15)
-        rect = pygame.Rect(x + 15, y+ 15, width, height)
 
-        pygame.draw.rect(surface, (30, 30, 30), rect)
-        pygame.draw.rect(surface, (150, 150, 150), rect, 2)
-
-        for i, line in enumerate(lines):
+        #calculate size
+        max_width = 0
+        total_height = 0
+        for line in lines:
             surf = font.render(line, True, (255, 255, 255))
-            surface.blit(surf, (rect.x + padding, rect.y + padding + i * 22))
+            max_width = max(max_width, surf.get_width())
+            total_height += surf.get_height() + 2
+
+        width = max_width + padding * 2
+        height = total_height + padding * 2
+        
+        #position tooltip
+        x, y = mouse_pos
+        x += 15
+        y += 15
+
+        #keep on screen
+        if x + width > SCREEN_WIDTH:
+            x = SCREEN_WIDTH - width - 5
+        if y + height > SCREEN_HEIGHT:
+            y = SCREEN_HEIGHT - height - 5
+
+        rect = pygame.Rect(x, y, width, height)
+
+        #draw background
+        pygame.draw.rect(surface, (30, 30, 30), rect, border_radius = 5)
+        pygame.draw.rect(surface, (150, 150, 150), rect, 2, border_radius = 5)
+
+        #draw text
+        text_y = y + padding
+        for i, line in enumerate(lines):
+            #color the first line (spell name) specially
+            if i == 0:
+                color = (255, 215, 0) #Gold
+            elif "Equipped" in line:
+                color = (100, 255, 100) #Green
+            elif "Not equipped" in line:
+                color = (180, 180, 180) #Gray
+            else:
+                color = (255, 255, 255) #White
+
+            surf = font.render(line, True, color)
+            surface.blit(surf, (x + padding, text_y))
+            text_y += surf.get_height() + 2
 
 class CharacterWindow:
     def __init__(self, game):
