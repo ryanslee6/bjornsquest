@@ -355,6 +355,10 @@ class GameManager:
             self._handle_title_events(event)
         elif self.state == "home":
             self._handle_home_events(event)
+        elif self.state == "gathering_select":
+            self._handle_gathering_select_events(event)
+        elif self.state == "crafting_select":
+            self._handle_crafting_select_events(event)
         elif self.state == "creature_select":
             self._handle_creature_select_events(event)
 
@@ -675,6 +679,16 @@ class GameManager:
                     self.state = "vendor"
                     print("[UI] Entering vendor screen")
                     return True
+                
+                elif text == "Gather":
+                    self.state = "gathering_select"
+                    print("[UI] Entering gathering selection screen")
+                    return True
+                
+                elif text == "Craft":
+                    self.state = "crafting_select"
+                    print("[UI] Entering crafting selection screen")
+                    return True
 
                 elif text == "Save":
                     game_state = {
@@ -729,6 +743,48 @@ class GameManager:
                 self.state = "combat"
 
                 return True
+        return False
+    
+    #handle events for gathering selection screen
+    def _handle_gathering_select_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return False
+        
+        #check inventory button
+        if hasattr(self, 'gathering_inventory_button') and self.gathering_inventory_button.collidepoint(event.pos):
+            self.show_inventory = not self.show_inventory
+            if self.show_inventory:
+                self.inventory_window.mark_dirty()
+            print("[UI] Toggling Inventory Window")
+            return True
+        
+        #check home button
+        if hasattr(self, 'gathering_home_button') and self.gathering_home_button.collidepoint(event.pos):
+            self.state = "home"
+            print("[UI] Returning to home screen")
+            return True
+        
+        return False
+    
+    #handle events for the crafting selection screen
+    def _handle_crafting_select_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return False
+        
+        #check inventory button
+        if hasattr(self, 'crafting_inventory_button') and self.crafting_inventory_button.collidepoint(event.pos):
+            self.show_inventory = not self.show_inventory
+            if self.show_inventory:
+                self.inventory_window.mark_dirty()
+            print("[UI] Toggling Inventory Window")
+            return True
+        
+        #check home button
+        if hasattr(self, 'crafting_home_button') and self.crafting_home_button.collidepoint(event.pos):
+            self.state = "home"
+            print("[UI] Returning to home screen")
+            return True
+        
         return False
 
     def show_enhancement_confirmation(self, scroll, item):
@@ -911,6 +967,12 @@ class GameManager:
         elif self.state == "combat":
             self.draw_combat_screen()
 
+        elif self.state == "gathering_select":
+            self.draw_gathering_select()
+
+        elif self.state == "crafting_select":
+            self.draw_crafting_select()
+
         if self.character_window.visible:
             self.character_window.draw(self.screen)
 
@@ -930,6 +992,10 @@ class GameManager:
         #character creation window
         if self.character_creation_window.visible:
             self.character_creation_window.draw(self.screen)
+
+        if self.state in ["gathering_select", "crafting_select"]:
+            if self.show_inventory:
+                self.inventory_window.draw(self.screen)
 
     def draw_title(self):
         self.screen.blit(self.title_image, (0, 0))
@@ -974,7 +1040,103 @@ class GameManager:
         if self.bounty_ui.is_visible:
             self.bounty_ui.draw(self.screen)
 
+    #draw the gathering type selection screen
+    def draw_gathering_select(self):
+        #background (black placeholder for now)
+        self.screen.fill(BLACK)
 
+        #window dimensions
+        window_width = 600
+        window_height = 500
+        window_x = SCREEN_WIDTH // 2 - window_width // 2
+        window_y = SCREEN_HEIGHT // 2 - window_height // 2
+
+        #draw window background
+        pygame.draw.rect(self.screen, (40, 40, 50), (window_x, window_y, window_width, window_height), border_radius = 8)
+        pygame.draw.rect(self.screen, (150, 150, 150), (window_x, window_y, window_width, window_height), 2, border_radius = 8)
+
+        #draw title
+        title = self.font.render("Choose Gathering Type:", True, WHITE)
+        self.screen.blit(title, (window_x + window_width // 2 - title.get_width() // 2, window_y + 20))
+
+        #draw coming soon text
+        coming_soon = self.font.render("Coming Soon", True, (200, 200, 200))
+        self.screen.blit(coming_soon, (window_x + window_width // 2 - coming_soon.get_width() // 2,
+                                       window_y + window_height // 2 - coming_soon.get_height() // 2))
+        
+        #bottom buttons
+        button_width = 120
+        button_height = 40
+        button_spacing = 20
+        total_button_width = button_width * 2 + button_spacing
+        button_x = window_x + (window_width - total_button_width) // 2
+        button_y = window_y + window_height - 60
+
+        #create button rects for this frame
+        self.gathering_inventory_button = pygame.Rect(button_x, button_y, button_width, button_height)
+        self.gathering_home_button = pygame.Rect(button_x + button_width + button_spacing, button_y, button_width, button_height)
+
+        #draw inventory button
+        pygame.draw.rect(self.screen, LIGHT_GRAY, self.gathering_inventory_button)
+        inv_text = self.font_small.render("Inventory", True, WHITE)
+        self.screen.blit(inv_text, (self.gathering_inventory_button.x + self.gathering_inventory_button.width // 2 - inv_text.get_width() // 2,
+                                    self.gathering_inventory_button.y + self.gathering_inventory_button.height // 2 - inv_text.get_height() // 2))
+        
+        #draw home button
+        pygame.draw.rect(self.screen, LIGHT_GRAY, self.gathering_home_button)
+        home_text = self.font_small.render("Home", True, WHITE)
+        self.screen.blit(home_text, (self.gathering_home_button.x + self.gathering_home_button.width // 2 - home_text.get_width() // 2,
+                                     self.gathering_home_button.y + self.gathering_home_button.height // 2 - home_text.get_height() // 2))
+
+    #draw crafting type selection screen
+    def draw_crafting_select(self):
+        #draw background (black for now)
+        self.screen.fill(BLACK)
+
+        #window dimensions
+        window_width = 600
+        window_height = 500
+        window_x = SCREEN_WIDTH // 2 - window_width // 2
+        window_y = SCREEN_HEIGHT // 2 - window_height // 2
+
+        #draw window background
+        pygame.draw.rect(self.screen, (40, 40, 50), (window_x, window_y, window_width, window_height), border_radius = 8)
+        pygame.draw.rect(self.screen, (150, 150, 150), (window_x, window_y, window_width, window_height), 2, border_radius = 8)
+
+        #draw title
+        title = self.font.render("Choose Crafting Type:", True, WHITE)
+        self.screen.blit(title, (window_x + window_width // 2 - title.get_width() // 2, window_y + 20))
+
+        #draw coming soon text
+        coming_soon = self.font.render("Coming Soon", True, (200, 200, 200))
+        self.screen.blit(coming_soon, (window_x + window_width // 2 - coming_soon.get_width() // 2,
+                                       window_y + window_height // 2 - coming_soon.get_height() // 2))
+        
+        #bottom buttons
+        button_width = 120
+        button_height = 40
+        button_spacing = 20
+        total_button_width = button_width * 2 + button_spacing
+        button_x = window_x + (window_width - total_button_width) // 2
+        button_y = window_y + window_height - 60
+
+        #create button rects
+        self.crafting_inventory_button = pygame.Rect(button_x, button_y, button_width, button_height)
+        self.crafting_home_button = pygame.Rect(button_x + button_width + button_spacing, button_y, button_width, button_height)
+
+        #draw inventory buttons
+        pygame.draw.rect(self.screen, LIGHT_GRAY, self.crafting_inventory_button)
+        inv_text = self.font_small.render("Inventory", True, WHITE)
+        self.screen.blit(inv_text, (self.crafting_inventory_button.x + self.crafting_inventory_button.width // 2 - inv_text.get_width() // 2,
+                                    self.crafting_inventory_button.y + self.crafting_inventory_button.height // 2 - inv_text.get_height() // 2))
+        
+        #draw home button
+        pygame.draw.rect(self.screen, LIGHT_GRAY, self.crafting_home_button)
+        home_text = self.font_small.render("Home", True, WHITE)
+        self.screen.blit(home_text, (self.crafting_home_button.x + self.crafting_home_button.width // 2 - home_text.get_width() // 2,
+                                     self.crafting_home_button.y + self.crafting_home_button.height // 2 - home_text.get_height() // 2))
+        
+        
     def draw_creature_select(self):
         #draw background (page-specific or fallback)
         bg = self.monster_select_backgrounds.get(self.current_monster_page)

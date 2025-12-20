@@ -240,7 +240,8 @@ class LightningBolt(Spell):
             power = 30,
             element = "earth",
             target = "enemy",
-            cooldown = 8.0
+            cooldown = 8.0,
+            icon_filename = "lightningbolt_icon"
         )
 
         self.stun_duration = 3.0
