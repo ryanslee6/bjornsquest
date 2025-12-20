@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "1.0",
-    "save_date": "2025-12-19T10:05:01.486130",
+    "save_date": "2025-12-19T09:59:24.238847",
     "character_name": "Bjorn",
     "level": 6,
     "playertime": 0
@@ -9,15 +9,15 @@
   "player": {
     "name": "Bjorn",
     "level": 6,
-    "exp": 1159,
-    "gold": 3972,
+    "exp": 1107,
+    "gold": 3970,
     "stat_points": 0,
     "stats": {
       "base_strength": 21,
       "base_dexterity": 8,
       "base_constitution": 5,
       "base_intelligence": 8,
-      "hp": 525,
+      "hp": 495,
       "mp": 115
     },
     "unlocks": {
@@ -28,12 +28,20 @@
       {
         "type": "stackable",
         "id": "health_potion_small",
-        "qty": 18
+        "qty": 6
       },
       {
-        "type": "stackable",
-        "id": "anti_poison_potion",
-        "qty": 5
+        "type": "unique",
+        "item_data": {
+          "id": "basic_training_helmet",
+          "name": "Basic Training Helmet",
+          "type": "Armor",
+          "enhancements": [],
+          "used_slots": 0,
+          "enhancement_slots": 1,
+          "rolled_armor": 1,
+          "rolled_stats": {}
+        }
       },
       {
         "type": "unique",
@@ -99,6 +107,38 @@
           "rolled_armor": 5,
           "rolled_stats": {
             "max_hp": 8
+          }
+        }
+      },
+      {
+        "type": "unique",
+        "item_data": {
+          "id": "goblin_chain_mail",
+          "name": "Goblin Chain Mail",
+          "type": "Armor",
+          "enhancements": [
+            {
+              "stat": "constitution",
+              "value": 1
+            },
+            {
+              "stat": "strength",
+              "value": 1
+            },
+            {
+              "stat": "armor",
+              "value": 1
+            },
+            {
+              "stat": "armor",
+              "value": 1
+            }
+          ],
+          "used_slots": 4,
+          "enhancement_slots": 4,
+          "rolled_armor": 5,
+          "rolled_stats": {
+            "strength": 1
           }
         }
       },
@@ -176,34 +216,6 @@
             "constitution": 1
           }
         }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 4,
-          "rolled_stats": {
-            "constitution": 2
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_helmet",
-          "name": "Basic Training Helmet",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 1,
-          "rolled_armor": 1,
-          "rolled_stats": {}
-        }
       }
     ],
     "equipment": {
@@ -214,29 +226,12 @@
         "id": "goblin_chain_mail",
         "name": "Goblin Chain Mail",
         "type": "Armor",
-        "enhancements": [
-          {
-            "stat": "constitution",
-            "value": 1
-          },
-          {
-            "stat": "strength",
-            "value": 1
-          },
-          {
-            "stat": "armor",
-            "value": 1
-          },
-          {
-            "stat": "armor",
-            "value": 1
-          }
-        ],
-        "used_slots": 4,
+        "enhancements": [],
+        "used_slots": 0,
         "enhancement_slots": 4,
-        "rolled_armor": 5,
+        "rolled_armor": 4,
         "rolled_stats": {
-          "strength": 1
+          "constitution": 2
         }
       },
       "legs": null,
@@ -250,49 +245,8 @@
     "active_effects": []
   },
   "game_state": {
-    "current_monster": "Svartvefnir",
+    "current_monster": "Goblin",
     "monster_page": 0,
-    "playtime": 0,
-    "bounties": [
-      {
-        "id": 0,
-        "tier": "EASY",
-        "monster_name": "Goblin",
-        "target_count": 9,
-        "current_count": 9,
-        "is_completed": true,
-        "reward": {
-          "experience": 90,
-          "gold": 45,
-          "bounty_points": 1
-        }
-      },
-      {
-        "id": 1,
-        "tier": "MEDIUM",
-        "monster_name": "Skeleton",
-        "target_count": 24,
-        "current_count": 4,
-        "is_completed": false,
-        "reward": {
-          "experience": 600,
-          "gold": 360,
-          "bounty_points": 2
-        }
-      },
-      {
-        "id": 2,
-        "tier": "HARD",
-        "monster_name": "Wolf",
-        "target_count": 21,
-        "current_count": 8,
-        "is_completed": false,
-        "reward": {
-          "experience": 1050,
-          "gold": 735,
-          "bounty_points": 3
-        }
-      }
-    ]
+    "playtime": 0
   }
 }

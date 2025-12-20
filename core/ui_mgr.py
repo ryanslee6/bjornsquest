@@ -1128,7 +1128,7 @@ class SpellbookWindow:
 
         #window dimensions
         self.width = 500
-        self.height = 570
+        self.height = 565
         self.x = SCREEN_WIDTH // 2 - self.width // 2
         self.y = SCREEN_HEIGHT // 2 - self.height // 2
         
@@ -1147,13 +1147,23 @@ class SpellbookWindow:
 
         #Pagination
         self.current_page = 0
-        self.spells_per_page = 6
+        self.spells_per_page = 5
 
         #selection state
         self.selected_slot = None
 
         #icon placeholder surface (spells without icons)
         self.placeholder_icon = self.create_placeholder_icon()
+
+        #pre-scaled spell icons
+        self.icon_size = 44
+        self.scaled_spell_icons = {}
+        for spell in spellbook:
+            if hasattr(spell, 'icon') and spell.icon:
+                self.scaled_spell_icons[spell.name] = pygame.transform.smoothscale(
+                    spell.icon,
+                    (self.icon_size, self.icon_size)
+                )
 
         #store spell rects for click detection
         self.spell_rects = []
@@ -1162,7 +1172,7 @@ class SpellbookWindow:
 
     #create placeholder icon for spells without custom icons
     def create_placeholder_icon(self):
-        size = 48
+        size = 44
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
 
         #draw a simple circle as placeholder
@@ -1243,8 +1253,8 @@ class SpellbookWindow:
         self.spell_rects = []
         current_spells = self.get_current_page_spells()
 
-        spell_height = 70
-        spell_spacing = 10
+        spell_height = 65
+        spell_spacing = 8
         spell_width = self.width - 40
 
         for i, spell in enumerate(current_spells):
@@ -1270,10 +1280,15 @@ class SpellbookWindow:
             pygame.draw.rect(surface, bg_color, spell_rect, border_radius = 6)
             pygame.draw.rect(surface, self.border_color, spell_rect, 2, border_radius = 6)
 
-            #draw spell icon (placeholder for now)
+            #draw spell icon
             icon_x = spell_rect.x + 10
-            icon_y = spell_rect.y + (spell_rect.height - 48) // 2
-            surface.blit(self.placeholder_icon, (icon_x, icon_y))
+            icon_y = spell_rect.y + (spell_rect.height - self.icon_size) // 2
+
+            #use prescaled icon if available
+            if spell.name in self.scaled_spell_icons:
+                surface.blit(self.scaled_spell_icons[spell.name], (icon_x, icon_y))
+            else:
+                surface.blit(self.placeholder_icon, (icon_x, icon_y))
 
             #draw spell name
             name_text = self.font.render(spell.name, True, (255, 255, 255))
@@ -1287,7 +1302,7 @@ class SpellbookWindow:
                 f"Damage: {spell.power}"
             ]
 
-            info_y = name_y + 22
+            info_y = name_y + 20
             for info_line in info_lines:
                 info_text = self.small_font.render(info_line, True, (180, 180, 180))
                 surface.blit(info_text, (name_x, info_y))
@@ -1319,7 +1334,7 @@ class SpellbookWindow:
         
         button_width = 100
         button_height = 35
-        button_y = self.y + self.height - 70
+        button_y = self.y + self.height - 65
 
         #previous button (only show if not on first page)
         if self.current_page > 0:
@@ -1329,7 +1344,7 @@ class SpellbookWindow:
             pygame.draw.rect(surface, (50, 80, 150), self.prev_button_rect, border_radius = 5)
             pygame.draw.rect(surface, (100, 140, 200), self.prev_button_rect, 2, border_radius = 5)
 
-            prev_text = self.font.reder("Previous", True, (255, 255, 255))
+            prev_text = self.font.render("Previous", True, (255, 255, 255))
             prev_text_rect = prev_text.get_rect(center = self.prev_button_rect.center)
             surface.blit(prev_text, prev_text_rect)
         else:
