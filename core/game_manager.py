@@ -787,6 +787,121 @@ class GameManager:
         
         return False
 
+    #draw resource bars (hp or mp)
+    def _draw_resource_bar(self, surface, x, y, width, height,
+                           current, maximum, label,
+                           bg_color, fill_color,
+                           bar_font, label_font, shield = 0):
+        
+        LABEL_WIDTH = 35
+        LABEL_TO_BAR_GAP = 5
+
+        label_surface = label_font.render(label, True, WHITE)
+
+        #position label to the left of the bar
+        label_x = x - LABEL_TO_BAR_GAP - label_surface.get_width()
+        label_y = y + (height - label_surface.get_height()) // 2
+        surface.blit(label_surface, (label_x, label_y))
+        
+        #draw background (empty bar)
+        pygame.draw.rect(surface, bg_color, (x, y, width, height))
+
+        #draw filled protion (current value)
+        ratio = current / maximum if maximum > 0 else 0
+        fill_width = int(width * ratio)
+        if fill_width > 0:
+            pygame.draw.rect(surface, fill_color, (x, y, fill_width, height))
+
+        #shield drawn immediately after hp fill
+        if shield > 0:
+            shield_ratio = shield / maximum if maximum > 0 else 0
+            shield_width_uncapped = int(width * shield_ratio)
+            available_space = width - fill_width
+            shield_width = min(shield_width_uncapped, available_space)
+
+            if shield_width > 0:
+                shield_x = x + fill_width
+                pygame.draw.rect(surface, LIGHT_BLUE,
+                                 (shield_x, y, shield_width, height))
+
+        #draw current/max text with shield if applicable
+        if shield > 0:
+            text_str = f"{int(current)}(+{int(shield)})/{int(maximum)}"
+        else:
+            text_str = f"{int(current)}/{int(maximum)}"
+
+        #draw current/max text in center of bar
+        text = bar_font.render(text_str, True, WHITE)
+        text_x = x + (width - text.get_width()) // 2
+        text_y = y + (height - text.get_height()) // 2
+        surface.blit(text, (text_x, text_y))
+
+    #draw players unit frame
+    def draw_player_unit_frame(self):
+        #frame position and size
+        frame_x = 30
+        frame_y = 10
+        frame_width = 240
+        frame_height = 107
+
+        #stored for buff display positioning
+        self.player_frame_x = frame_x
+        self.player_frame_y = frame_y
+        self.player_frame_height = frame_height
+
+        #get exp progress
+        exp_into_level, exp_needed = self.player.exp_progress()
+        exp_ratio = exp_into_level / exp_needed if exp_needed > 0 else 0
+
+        #player shield
+        player_shield = self.player.current_shield if hasattr(self.player, 'current_shield') else 0
+
+        #draw the frame
+        self.draw_unit_frame(
+            self.screen, frame_x, frame_y, frame_width, frame_height,
+            name = self.player.name,
+            level = self.player.level,
+            hp = self.player.stats.hp,
+            max_hp = self.player.stats.max_hp,
+            mp = self.player.stats.mp,
+            max_mp = self.player.stats.max_mp,
+            show_exp = True,
+            exp_ratio = exp_ratio,
+            current_shield = player_shield
+        )
+
+    #draw monster unit frame
+    def draw_enemy_unit_frame(self):
+        #frame position and size
+        frame_width = 240
+        frame_height = 85
+        frame_x = SCREEN_WIDTH - frame_width - 30
+        frame_y = 10
+
+        #stored for buff positioning
+        self.enemy_frame_x = frame_x
+        self.enemy_frame_y = frame_y
+        self.enemy_frame_height = frame_height
+
+        monster = self.combat.current_monster
+
+        #monster shield
+        monster_shield = monster.current_shield if hasattr(monster, 'current_shield') else 0
+
+        #draw the frame
+        self.draw_unit_frame(
+            self.screen, frame_x, frame_y, frame_width, frame_height,
+            name = monster.name,
+            level = monster.level,
+            hp = monster.stats.hp,
+            max_hp = monster.stats.max_hp,
+            mp = monster.stats.mp,
+            max_mp = monster.stats.max_mp,
+            show_exp = False,
+            exp_ratio = 0,
+            current_shield = monster_shield
+        )
+
     def show_enhancement_confirmation(self, scroll, item):
         #show the enhancement confirmation dialog
         self.enhancement_confirmation.show(scroll, item)
@@ -979,11 +1094,22 @@ class GameManager:
         if self.levelup_window.visible:
             self.levelup_window.draw(self.screen)
 
+        #FPS counter
         fps = int(self.clock.get_fps())
         fps_color = (0, 255, 0) if fps >= 55 else (255, 215, 0) if fps >= 45 else (255, 0, 0)
 
         fps_text = self.fps_font.render(f"FPS: {fps}", True, fps_color)
-        self.screen.blit(fps_text, (10, 60))
+        
+        #positioning based on being in combat or not
+        if hasattr(self, 'player_frame_x') and self.state == "combat":
+            #in combat: position below player unit frame
+            fps_x = self.player_frame_x
+            fps_y = self.player_frame_y + self.player_frame_height + 5
+        else:
+            fps_x = 10
+            fps_y = 10
+
+        self.screen.blit(fps_text, (fps_x, fps_y))
 
         #save select window
         if self.save_select_window.visible:
@@ -1237,6 +1363,111 @@ class GameManager:
         self.screen.blit(ret, (self.return_button.x + self.return_button.width // 2 - ret.get_width() // 2,
                                    self.return_button.y + self.return_button.height // 2 - ret.get_height() // 2))
 
+    #draw unit frames with automatic text scaling for long names
+    def draw_unit_frame(self, surface, x, y, width, height, name, level,
+                        hp, max_hp, mp, max_mp, show_exp = False, exp_ratio = 0, current_shield = 0):
+        #Frame styling constants
+        FRAME_BG_COLOR = (25, 25, 35, 220) #dark blue-ish background with transparency
+        FRAME_BORDER_COLOR = (100, 100, 120) #light gray
+        FRAME_BORDER_WIDTH = 2
+        FRAME_BORDER_RADIUS = 8
+
+        BAR_HEIGHT = 16
+        BAR_SPACING = 6
+        TEXT_PADDING = 5
+
+        #create and draw the frame background
+        frame_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+        frame_surface.fill(FRAME_BG_COLOR)
+        surface.blit(frame_surface, (x, y))
+
+        #draw the border
+        frame_rect = pygame.Rect(x, y, width, height)
+        pygame.draw.rect(surface, FRAME_BORDER_COLOR, frame_rect,
+                         FRAME_BORDER_WIDTH, border_radius = FRAME_BORDER_RADIUS)
+        
+        #name with auto scaling
+        name_text = f"{name} (Lvl: {level})"
+        max_name_width = width - (TEXT_PADDING * 2)
+
+        #try different font sizes until the text fits
+        font_size = 28
+        min_font_size = 18
+        name_font = pygame.font.Font(None, font_size)
+
+        #shrinks font until it fits
+        while name_font.size(name_text)[0] > max_name_width and font_size > min_font_size:
+            font_size -= 2
+            name_font = pygame.font.Font(None, font_size)
+
+        #now render and center the text
+        name_surface = name_font.render(name_text, True, WHITE)
+        name_x = x + (width - name_surface.get_width()) // 2
+        name_y = y + TEXT_PADDING
+        surface.blit(name_surface, (name_x, name_y))
+
+        #--Resource bars--
+        #calculate where bars start
+        bars_start_y = name_y + name_surface.get_height() + 8
+
+        LABEL_WIDTH = 25
+        LABEL_TO_BAR_GAP = 5
+
+        bar_x = x + TEXT_PADDING + LABEL_WIDTH + LABEL_TO_BAR_GAP
+
+        bar_width = width - (TEXT_PADDING * 2) - LABEL_WIDTH - LABEL_TO_BAR_GAP
+
+        #fonts for bar text
+        bar_font = pygame.font.Font(None, 18)
+        label_font = pygame.font.Font(None, 16)
+
+        #hp bar
+        hp_y = bars_start_y
+        self._draw_resource_bar(surface, bar_x, hp_y, bar_width, BAR_HEIGHT,
+                                hp, max_hp, "HP",
+                                bg_color = RED, fill_color = GREEN,
+                                bar_font = bar_font, label_font = label_font, shield = current_shield)
+        
+        #mp bar
+        mp_y = hp_y + BAR_HEIGHT + BAR_SPACING
+        self._draw_resource_bar(surface, bar_x, mp_y, bar_width, BAR_HEIGHT,
+                                mp, max_mp, "MP",
+                                bg_color = BLUE, fill_color = CYAN,
+                                bar_font = bar_font, label_font = label_font)
+        
+        #Exp bar (only for player)
+        if show_exp:
+            exp_y = mp_y + BAR_HEIGHT + BAR_SPACING
+            exp_percent = int(exp_ratio * 100)
+
+            LABEL_WIDTH = 35
+            LABEL_TO_BAR_GAP = 5
+
+            exp_label = label_font.render("EXP", True, WHITE)
+            exp_label_x = bar_x - LABEL_TO_BAR_GAP - exp_label.get_width()
+            exp_label_y = exp_y + (BAR_HEIGHT - exp_label.get_height()) // 2
+            surface.blit(exp_label, (exp_label_x, exp_label_y))
+
+            #draw background
+            pygame.draw.rect(surface, (50, 50, 50),
+                             (bar_x, exp_y, bar_width, BAR_HEIGHT))
+            
+            #draw filled portion
+            fill_width = int(bar_width * exp_ratio)
+            if fill_width > 0:
+                pygame.draw.rect(surface, (255, 215, 0),
+                                 (bar_x, exp_y, fill_width, BAR_HEIGHT))
+                
+            #draw percentage text
+            exp_text = bar_font.render(f"{exp_percent}%", True, WHITE)
+            text_x = bar_x + (bar_width - exp_text.get_width()) // 2
+            text_y = exp_y + (BAR_HEIGHT - exp_text.get_height())  // 2
+            surface.blit(exp_text, (text_x, text_y))
+
+            #draw label
+            label = label_font.render("EXP", True, WHITE)
+            surface.blit(label, (bar_x - label.get_width() - 6, exp_y + 2)) 
+
     def draw_combat_screen(self):
         self.screen.fill(BLACK)
         self.screen.blit(self.combat_bg, (0, 0))
@@ -1247,12 +1478,8 @@ class GameManager:
         label_font = tiny_font
         label_color = WHITE
         self.hovered_effect = None
-
         player_x = 38
         player_y = 10
-
-        bar_width = 160
-        bar_height = 15
 
         #spell projectiles
         for p in self.combat.projectiles:
@@ -1260,65 +1487,10 @@ class GameManager:
             rect = image.get_rect(center = (int(p["x"]), int(p["y"])))
             self.screen.blit(image, rect)
 
-        #semi-transparent background for unit frame
-        frame_width = bar_width + 45
-        frame_height = 90
-        frame_x = player_x - 35
-        frame_y = player_y - 2
+        #draw player_unit_frame
+        self.draw_player_unit_frame()
         
-        unit_frame_surf = pygame.Surface((frame_width, frame_height), pygame.SRCALPHA)
-        unit_frame_surf.fill((0, 0, 0, 160))
-        self.screen.blit(unit_frame_surf, (frame_x, frame_y))
-
-        self.player_frame_x = frame_x
-        self.player_frame_y = frame_y
-        self.player_frame_height = frame_height
-
-        #player name
-        player_text = font.render(f"{self.player.name} (Lv {self.player.level})", True, WHITE)
-        self.screen.blit(player_text, (player_x, player_y))
-        
-        
-        #player hp
-        player_hp_ratio = self.player.stats.hp / self.player.stats.max_hp
-        pygame.draw.rect(self.screen, RED, (player_x, player_y + 30, bar_width, bar_height))
-        pygame.draw.rect(self.screen, GREEN, (player_x, player_y + 30, int(bar_width * player_hp_ratio), bar_height))
-        hp_text = tiny_font.render(f"{self.player.stats.hp}/{self.player.stats.max_hp}", True, WHITE)
-        hp_text_x = player_x + bar_width // 2 - hp_text.get_width() // 2
-        hp_text_y = player_y + 30 + bar_height // 2 - hp_text.get_height() // 2 + 2
-        self.screen.blit(hp_text, (hp_text_x, hp_text_y))
-        hp_label = label_font.render("HP", True, label_color)
-        self.screen.blit(hp_label, (player_x - hp_label.get_width() - 8, player_y + 30))
-
-
-        #player mp
-        player_mp_ratio = self.player.stats.mp / self.player.stats.max_mp
-        pygame.draw.rect(self.screen, BLUE, (player_x, player_y + 50, bar_width, bar_height))
-        pygame.draw.rect(self.screen, CYAN, (player_x, player_y + 50, int(bar_width * player_mp_ratio), bar_height))
-        mp_text = tiny_font.render(f"{self.player.stats.mp}/{self.player.stats.max_mp}", True, WHITE)
-        mp_text_x = player_x + bar_width // 2 - mp_text.get_width() // 2
-        mp_text_y = player_y + 50 + bar_height // 2 - mp_text.get_height() // 2 + 2
-        self.screen.blit(mp_text, (mp_text_x, mp_text_y))
-        mp_label = label_font.render("MP", True, label_color)
-        self.screen.blit(mp_label, (player_x - mp_label.get_width() - 8, player_y + 50))
-
-
-        #exp bar
-        exp_into_level, exp_needed = self.player.exp_progress()
-        exp_ratio = exp_into_level / exp_needed
-        exp_percent = int(exp_ratio * 100)
-        exp_bar_y = player_y + 70
-
-        pygame.draw.rect(self.screen, (50, 50, 50), (player_x, exp_bar_y, bar_width, bar_height), border_radius = 6)
-        pygame.draw.rect(self.screen, (255, 215, 0), (player_x, exp_bar_y, int(bar_width * exp_ratio), bar_height), border_radius = 6)
-        exp_text = tiny_font.render(f"{exp_percent}%", True, WHITE)
-        self.screen.blit(exp_text, (player_x + bar_width // 2 - exp_text.get_width() // 2,
-                                    exp_bar_y + bar_height // 2 - exp_text.get_height() // 2 + 2))
-
-        exp_label = label_font.render("EXP", True, label_color)
-        self.screen.blit(exp_label, (player_x - exp_label.get_width() - 8, exp_bar_y))
-
-        #draw level up button if poitns avaialable
+        #draw level up button if points avaialable
         self.draw_levelup_button()
 
         #player sprite
@@ -1363,72 +1535,8 @@ class GameManager:
         enemy_x = SCREEN_WIDTH - enemy_bar_width
         enemy_y = 17
 
-        frame_width = enemy_bar_width + 5
-        frame_height = 90
-        frame_x = enemy_x - 10
-        frame_y = enemy_y - 10
-
-        enemy_frame_surf = pygame.Surface((frame_width, frame_height), pygame.SRCALPHA)
-        enemy_frame_surf.fill((0, 0, 0, 160))
-        self.screen.blit(enemy_frame_surf, (frame_x, frame_y))     
-
-        self.enemy_frame_x = frame_x
-        self.enemy_frame_y = frame_y
-        self.enemy_frame_height = frame_height
-
-        #monster hp/mp
-
-        enemy_x = SCREEN_WIDTH - 180
-        enemy_y = 20
-        monster = self.combat.current_monster
-
-        monster_text = font.render(f"{monster.name} (Lvl {monster.level})", True, WHITE)
-        self.screen.blit(monster_text, (enemy_x, enemy_y))
-        
-        #monster hp bar
-        monster_hp_ratio = monster.stats.hp / monster.stats.max_hp
-        pygame.draw.rect(self.screen, RED, (enemy_x, enemy_y + 30, bar_width, bar_height))
-        pygame.draw.rect(self.screen, GREEN, (enemy_x, enemy_y + 30, int(bar_width * monster_hp_ratio), bar_height))
-        
-        #shield bar
-        if monster.current_shield > 0:
-            shield_color = LIGHT_BLUE
-
-            #calculate how much bar space is already used by hp
-            hp_bar_width = int(bar_width * monster_hp_ratio)
-
-            #calculate how much space is available for shield display
-            available_space = bar_width - hp_bar_width
-            
-            #calculate what the shield bar width should be if uncapped
-            shield_ratio = monster.current_shield / monster.stats.max_hp
-            uncapped_shield_width = int(bar_width * shield_ratio)
-
-            #cap it to available space
-            shield_width = min(uncapped_shield_width, available_space)
-
-            #draw shield bar starting from the right edge of the hp bar
-            shield_x = enemy_x + hp_bar_width
-            pygame.draw.rect(self.screen, shield_color, (shield_x, enemy_y + 30, shield_width, bar_height))
-        
-        #monster hp text
-        if monster.current_shield > 0:
-            hp_text = f"{int(monster.stats.hp)}+{int(monster.current_shield)}/{int(monster.stats.max_hp)}"
-        else:
-            hp_text = f"{int(monster.stats.hp)}/{int(monster.stats.max_hp)}"
-        hp_text_surf = tiny_font.render(hp_text, True, WHITE)
-
-        text_x = enemy_x + (bar_width // 2) - (hp_text_surf.get_width() // 2)
-        text_y = enemy_y + 32 + (bar_height // 2) - (hp_text_surf.get_height() // 2)
-        self.screen.blit(hp_text_surf, (text_x, text_y))
-
-
-
-        monster_mp_ratio = self.current_monster.stats.mp / self.current_monster.stats.max_mp
-        pygame.draw.rect(self.screen, BLUE, (enemy_x, enemy_y + 50, bar_width, bar_height))
-        pygame.draw.rect(self.screen, CYAN, (enemy_x, enemy_y + 50, int(bar_width * monster_mp_ratio), bar_height))
-
-
+        #draw enemy unit frame
+        self.draw_enemy_unit_frame()
 
         enemy_sprite_rect = pygame.Rect(enemy_x - 85, 305, 200, 180)
         self.enemy_sprite_rect = enemy_sprite_rect
