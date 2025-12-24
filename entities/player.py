@@ -21,6 +21,12 @@ class Player:
 
         self.enhancement_scroll = None #currently selected scroll for enhancement
 
+        #mining stats
+        self.mining_level = 1
+        self.mining_xp = 0
+        self.gathering_power = 0
+        self.mining_speed_bonus = 0.0
+
         self.current_shield = 0
         self.max_shield = 0
 
@@ -47,6 +53,9 @@ class Player:
 
         if self.sprite:
             self.sprite = pygame.transform.scale(self.sprite, (180, 160))
+
+        if item_manager is not None:
+            self.recalculate_stats()
     
     def level_up(self):
         self.level += 1
@@ -140,8 +149,12 @@ class Player:
         #add gear bonuses
         self.apply_gear_stats()
 
+        self.update_mining_stats_from_tool()
+
     def equip_item(self, item):
         #attmpts to equip an item from inventory
+
+        print(f"[DEBUG] Attempting to equip: {item.name}, type: '{item.type}'")
 
         #required level check
         req = getattr(item, "required_level", 1)
@@ -166,7 +179,25 @@ class Player:
 
             print(f"[EQUIP] Equipped weapon: {item.name}")
             return True
-        
+
+        #tool equipping
+        if item.type == "Tool":
+            slot = "weapon" #tools use weapon slot
+
+            #check if tool requires mining level
+            if hasattr(item, "required_level"):
+                if self.mining_level < item.required_level:
+                    print(f"[EQUIP] requires mining level {item.required_level}")
+                    return False
+                
+            #equip tool
+            self.unequip_slot(slot)
+            self.equipment[slot] = item
+            self.remove_from_inventory(item)
+            self.recalculate_stats()
+            print(f"[EQUIP] Equipped tool: {item.name}")
+            return True
+
         #Armor equipping
         if item.type == "Armor":
             armor_type = item.armor_type
@@ -584,5 +615,55 @@ class Player:
                     "item_destroyed": False
                 }
             
+    #gain mining xp and handle level ups
+    def gain_mining_xp(self, amount):
+        from systems.mining_system import MINING_XP_TABLE
+
+        self.mining_xp += amount
+        leveled_up = False
+
+        #check for level ups
+        while self.mining_level < 99 and self.mining_xp >= MINING_XP_TABLE[self.mining_level]:
+            self.mining_level += 1
+            leveled_up = True
+            print(f"⛏️ Mining level up! Reached level {self.mining_level}")
+
+        if not leveled_up:
+            print(f"⛏️ Gained {amount} mining XP")
+
+    #get progress towards next mining level
+    def get_mining_xp_progress(self):
+        from systems.mining_system import MINING_XP_TABLE
+
+        if self.mining_level >= 99:
+            return 1.0, 0, 0
+        
+        current_level_xp = MINING_XP_TABLE[self.mining_level - 1] if self.mining_level > 1 else 0
+        next_level_xp = MINING_XP_TABLE[self.mining_level]
+            
+        xp_into_level = self.mining_xp - current_level_xp
+        xp_needed = next_level_xp - current_level_xp
+
+        progress = xp_into_level / xp_needed if xp_needed > 0 else 1.0
+
+        return progress, xp_into_level, xp_needed
+    
+    #update gathering power and mining speed from equipped pickaxe
+    def update_mining_stats_from_tool(self):
+
+        #reset to base
+        self.gathering_power = 0
+        self.mining_speed_bonus = 0.0
+
+        #check weapon slot for pickaxe
+        tool = self.equipment.get("weapon")
+
+        if tool and hasattr(tool, "tool_type") and tool.tool_type == "Pickaxe":
+            #add tool bonuses
+            gathering = getattr(tool, "gathering_power", 0)
+            speed = getattr(tool, "mining_speed_bonus", 0.0)           
+           
+            self.gathering_power += gathering
+            self.mining_speed_bonus += speed
 
                 

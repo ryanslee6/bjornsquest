@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "1.0",
-    "save_date": "2025-12-20T22:53:49.611979",
+    "save_date": "2025-12-24T08:37:43.712817",
     "character_name": "Bjorn",
     "level": 8,
     "playertime": 0
@@ -10,16 +10,18 @@
     "name": "Bjorn",
     "level": 8,
     "exp": 2101,
-    "gold": 4752,
+    "gold": 4750,
     "stat_points": 0,
     "stats": {
       "base_strength": 24,
       "base_dexterity": 10,
       "base_constitution": 9,
       "base_intelligence": 9,
-      "hp": 550,
+      "hp": 545,
       "mp": 120
     },
+    "mining_level": 5,
+    "mining_xp": 493,
     "unlocks": {
       "auto_combat": true
     },
@@ -39,6 +41,29 @@
         "type": "stackable",
         "id": "anti_poison_potion",
         "qty": 5
+      },
+      {
+        "type": "stackable",
+        "id": "copper_ore",
+        "qty": 23
+      },
+      {
+        "type": "stackable",
+        "id": "tin_ore",
+        "qty": 8
+      },
+      {
+        "type": "unique",
+        "item_data": {
+          "id": "bronze_pickaxe",
+          "name": "Bronze Pickaxe",
+          "type": "Tool",
+          "enhancements": [],
+          "used_slots": 0,
+          "enhancement_slots": 0,
+          "rolled_armor": null,
+          "rolled_stats": {}
+        }
       }
     ],
     "equipment": {
@@ -76,7 +101,16 @@
       },
       "legs": null,
       "feet": null,
-      "weapon": null,
+      "weapon": {
+        "id": "iron_pickaxe",
+        "name": "Iron Pickaxe",
+        "type": "Tool",
+        "enhancements": [],
+        "used_slots": 0,
+        "enhancement_slots": 0,
+        "rolled_armor": null,
+        "rolled_stats": {}
+      },
       "offhand": null,
       "ring1": null,
       "ring2": null,
@@ -85,23 +119,9 @@
     "active_effects": []
   },
   "game_state": {
-    "current_monster": "Goblin",
+    "current_monster": null,
     "monster_page": 0,
     "playtime": 0,
-    "bounties": [
-      {
-        "id": 2,
-        "tier": "HARD",
-        "monster_name": "Wolf",
-        "target_count": 21,
-        "current_count": 8,
-        "is_completed": false,
-        "reward": {
-          "experience": 1050,
-          "gold": 735,
-          "bounty_points": 3
-        }
-      }
-    ]
+    "bounties": []
   }
 }

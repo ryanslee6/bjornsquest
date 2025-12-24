@@ -29,7 +29,7 @@ def main():
         game.update(dt)
         game.draw()
         pygame.display.flip()
-        clock.tick(FPS)
+        #clock.tick(FPS)
 
 
 

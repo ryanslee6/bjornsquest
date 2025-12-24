@@ -1,221 +1,49 @@
 {
   "metadata": {
     "version": "1.0",
-    "save_date": "2025-12-19T09:59:24.238847",
+    "save_date": "2025-12-23T11:55:29.440743",
     "character_name": "Bjorn",
-    "level": 6,
+    "level": 8,
     "playertime": 0
   },
   "player": {
     "name": "Bjorn",
-    "level": 6,
-    "exp": 1107,
-    "gold": 3970,
+    "level": 8,
+    "exp": 2101,
+    "gold": 4751,
     "stat_points": 0,
     "stats": {
-      "base_strength": 21,
-      "base_dexterity": 8,
-      "base_constitution": 5,
-      "base_intelligence": 8,
-      "hp": 495,
-      "mp": 115
+      "base_strength": 24,
+      "base_dexterity": 10,
+      "base_constitution": 9,
+      "base_intelligence": 9,
+      "hp": 545,
+      "mp": 120
     },
     "unlocks": {
       "auto_combat": true
     },
-    "bounty_points": 2,
+    "bounty_points": 5,
     "inventory": [
       {
         "type": "stackable",
         "id": "health_potion_small",
-        "qty": 6
+        "qty": 12
       },
       {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_helmet",
-          "name": "Basic Training Helmet",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 1,
-          "rolled_armor": 1,
-          "rolled_stats": {}
-        }
+        "type": "stackable",
+        "id": "mana_potion_small",
+        "qty": 3
       },
       {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_shirt",
-          "name": "Basic Training Shirt",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 1,
-          "rolled_armor": 1,
-          "rolled_stats": {}
-        }
+        "type": "stackable",
+        "id": "anti_poison_potion",
+        "qty": 5
       },
       {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_pants",
-          "name": "Basic Training Pants",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 1,
-          "rolled_armor": 1,
-          "rolled_stats": {}
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_boots",
-          "name": "Basic Training Boots",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 1,
-          "rolled_armor": 1,
-          "rolled_stats": {}
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "basic_training_shield",
-          "name": "Basic Training Shield",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 1,
-          "rolled_armor": 5,
-          "rolled_stats": {}
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 5,
-          "rolled_stats": {
-            "max_hp": 8
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [
-            {
-              "stat": "constitution",
-              "value": 1
-            },
-            {
-              "stat": "strength",
-              "value": 1
-            },
-            {
-              "stat": "armor",
-              "value": 1
-            },
-            {
-              "stat": "armor",
-              "value": 1
-            }
-          ],
-          "used_slots": 4,
-          "enhancement_slots": 4,
-          "rolled_armor": 5,
-          "rolled_stats": {
-            "strength": 1
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 5,
-          "rolled_stats": {
-            "max_hp": 10
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 3,
-          "rolled_stats": {
-            "max_hp": 8
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 5,
-          "rolled_stats": {
-            "constitution": 1
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 6,
-          "rolled_stats": {
-            "constitution": 2
-          }
-        }
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "goblin_chain_mail",
-          "name": "Goblin Chain Mail",
-          "type": "Armor",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 4,
-          "rolled_armor": 6,
-          "rolled_stats": {
-            "constitution": 1
-          }
-        }
+        "type": "stackable",
+        "id": "copper_ore",
+        "qty": 2
       }
     ],
     "equipment": {
@@ -226,17 +54,43 @@
         "id": "goblin_chain_mail",
         "name": "Goblin Chain Mail",
         "type": "Armor",
-        "enhancements": [],
-        "used_slots": 0,
+        "enhancements": [
+          {
+            "stat": "constitution",
+            "value": 1
+          },
+          {
+            "stat": "strength",
+            "value": 1
+          },
+          {
+            "stat": "armor",
+            "value": 1
+          },
+          {
+            "stat": "armor",
+            "value": 1
+          }
+        ],
+        "used_slots": 4,
         "enhancement_slots": 4,
-        "rolled_armor": 4,
+        "rolled_armor": 5,
         "rolled_stats": {
-          "constitution": 2
+          "strength": 1
         }
       },
       "legs": null,
       "feet": null,
-      "weapon": null,
+      "weapon": {
+        "id": "bronze_pickaxe",
+        "name": "Bronze Pickaxe",
+        "type": "Tool",
+        "enhancements": [],
+        "used_slots": 0,
+        "enhancement_slots": 0,
+        "rolled_armor": null,
+        "rolled_stats": {}
+      },
       "offhand": null,
       "ring1": null,
       "ring2": null,
@@ -245,7 +99,7 @@
     "active_effects": []
   },
   "game_state": {
-    "current_monster": "Goblin",
+    "current_monster": null,
     "monster_page": 0,
     "playtime": 0
   }

@@ -21,6 +21,8 @@ from core.save_system import SaveSystem
 from core.save_select_window import SaveSelectWindow
 from core.character_creation_window import CharacterCreationWindow
 from core.window_manager import WindowManager, GameWindow
+from systems.mining_system import MiningSystem
+from systems.mining_ui import MiningWindow
 
 
 class GameManager:
@@ -107,6 +109,10 @@ class GameManager:
             width = 700,
             height = 480
         )
+
+        #mining system
+        self.mining_system = MiningSystem()
+        self.mining_window = MiningWindow(self)
 
         #save system
         self.save_system = SaveSystem()
@@ -357,6 +363,8 @@ class GameManager:
             self._handle_home_events(event)
         elif self.state == "gathering_select":
             self._handle_gathering_select_events(event)
+        elif self.state == "mining":
+            self._handle_mining_state_events(event)
         elif self.state == "crafting_select":
             self._handle_crafting_select_events(event)
         elif self.state == "creature_select":
@@ -638,6 +646,17 @@ class GameManager:
                         return True
         return False
     
+    #handle evens when in mining state
+    def _handle_mining_state_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return False
+        
+        #check mining window clicks
+        if hasattr(self, "mining_window") and self.mining_window.visible:
+            return self.mining_window.handle_click(event.pos)
+        
+        return False
+
     def _handle_title_events(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.start_button.collidepoint(event.pos):
@@ -749,6 +768,12 @@ class GameManager:
     def _handle_gathering_select_events(self, event):
         if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
             return False
+        
+        #check mining button
+        if hasattr(self, 'mining_button') and self.mining_button.collidepoint(event.pos):
+            self.state = "mining"
+            print("[UI] Entering mining screen")
+            return True
         
         #check inventory button
         if hasattr(self, 'gathering_inventory_button') and self.gathering_inventory_button.collidepoint(event.pos):
@@ -970,7 +995,6 @@ class GameManager:
             #print("[DEBUG ACTIVE EFFECTS MONSTER] =", self.current_monster.active_effects)
             self.current_monster.remove_expired_effects()
             
-
         
         # ==========================================
         # 1) Handle Monster Death
@@ -1065,6 +1089,10 @@ class GameManager:
                 if autosave_path:
                     print("[AUTOSAVE] ✅ Game autosaved")
 
+        #update mining system
+        if hasattr(self, 'mining_system') and self.state == "mining":
+            self.mining_system.update(dt, self.player)
+
     def draw(self):
         if self.state == "title":
             self.draw_title()
@@ -1088,6 +1116,9 @@ class GameManager:
         elif self.state == "crafting_select":
             self.draw_crafting_select()
 
+        elif self.state == "mining":
+            self.draw_mining_screen()
+
         if self.character_window.visible:
             self.character_window.draw(self.screen)
 
@@ -1104,7 +1135,7 @@ class GameManager:
         if hasattr(self, 'player_frame_x') and self.state == "combat":
             #in combat: position below player unit frame
             fps_x = self.player_frame_x
-            fps_y = self.player_frame_y + self.player_frame_height + 5
+            fps_y = self.player_frame_y + self.player_frame_height + 40
         else:
             fps_x = 10
             fps_y = 10
@@ -1185,22 +1216,73 @@ class GameManager:
         title = self.font.render("Choose Gathering Type:", True, WHITE)
         self.screen.blit(title, (window_x + window_width // 2 - title.get_width() // 2, window_y + 20))
 
-        #draw coming soon text
-        coming_soon = self.font.render("Coming Soon", True, (200, 200, 200))
-        self.screen.blit(coming_soon, (window_x + window_width // 2 - coming_soon.get_width() // 2,
-                                       window_y + window_height // 2 - coming_soon.get_height() // 2))
+        #==Mining==
+        #button dimensions
+        button_width = 200
+        button_height = 60
+        button_x = window_x + (window_width - button_width) // 2
+        button_y = window_y + 100
+
+        #mining button
+        self.mining_button = pygame.Rect(button_x, button_y, button_width, button_height)
+        pygame.draw.rect(self.screen, (80, 120, 80), self.mining_button) #green background
+        pygame.draw.rect(self.screen, (120, 120, 120), self.mining_button, 2)
+
+        mining_text = self.font.render("Mining", True, WHITE)
+        self.screen.blit(mining_text, (
+            self.mining_button.x + self.mining_button.width // 2 - mining_text.get_width() // 2,
+            self.mining_button.y + self.mining_button.height // 2 - mining_text.get_height() // 2
+        ))
+
+        #coming soon sections (placeholder for other gathering)
+        coming_soon_y = button_y + 120
+
+        #woodcutting (coming soon)
+        woodcutting_rect = pygame.Rect(button_x, coming_soon_y, button_width, button_height)
+        pygame.draw.rect(self.screen, (60, 60, 60), woodcutting_rect)
+        pygame.draw.rect(self.screen, (100, 100, 100), woodcutting_rect, 2)
+
+        wc_text = self.font.render("Woodcutting", True, (120, 120, 120))
+        self.screen.blit(wc_text, (
+            woodcutting_rect.x + woodcutting_rect.width // 2 - wc_text.get_width() // 2,
+            woodcutting_rect.y + woodcutting_rect.height // 2 - wc_text.get_height() // 2 - 10
+        ))
+
+        soon_text = self.font_small.render("Coming Soon", True, (150, 150, 150))
+        self.screen.blit(soon_text, (
+            woodcutting_rect.x + woodcutting_rect.width // 2 - soon_text.get_width() // 2,
+            woodcutting_rect.y + woodcutting_rect.height // 2 + 5
+        ))
+
+        #Fishing (coming soon)
+        fishing_y = coming_soon_y + button_height + 20
+        fishing_rect = pygame.Rect(button_x, fishing_y, button_width, button_height)
+        pygame.draw.rect(self.screen, (60, 60, 60), fishing_rect)
+        pygame.draw.rect(self.screen, (100, 100, 100), fishing_rect, 2)
+
+        fish_text = self.font.render("Fishing", True, (120, 120, 120))
+        self.screen.blit(fish_text, (
+            fishing_rect.x + fishing_rect.width // 2 - fish_text.get_width() // 2,
+            fishing_rect.y + fishing_rect.height // 2 - fish_text.get_height() // 2 - 10
+        ))
+
+        soon_text2 = self.font_small.render("Coming Soon", True, (150, 150, 150))
+        self.screen.blit(soon_text2, (
+            fishing_rect.x + fishing_rect.width // 2 - soon_text2.get_width() // 2,
+            fishing_rect.y + fishing_rect.height // 2 + 5
+        ))
         
         #bottom buttons
-        button_width = 120
-        button_height = 40
+        button_width_small = 120
+        button_height_small = 40
         button_spacing = 20
-        total_button_width = button_width * 2 + button_spacing
+        total_button_width = button_width_small * 2 + button_spacing
         button_x = window_x + (window_width - total_button_width) // 2
         button_y = window_y + window_height - 60
 
         #create button rects for this frame
-        self.gathering_inventory_button = pygame.Rect(button_x, button_y, button_width, button_height)
-        self.gathering_home_button = pygame.Rect(button_x + button_width + button_spacing, button_y, button_width, button_height)
+        self.gathering_inventory_button = pygame.Rect(button_x, button_y, button_width_small, button_height_small)
+        self.gathering_home_button = pygame.Rect(button_x + button_width + button_spacing, button_y, button_width_small, button_height_small)
 
         #draw inventory button
         pygame.draw.rect(self.screen, LIGHT_GRAY, self.gathering_inventory_button)
@@ -1213,6 +1295,21 @@ class GameManager:
         home_text = self.font_small.render("Home", True, WHITE)
         self.screen.blit(home_text, (self.gathering_home_button.x + self.gathering_home_button.width // 2 - home_text.get_width() // 2,
                                      self.gathering_home_button.y + self.gathering_home_button.height // 2 - home_text.get_height() // 2))
+
+    #draw the mining screen
+    def draw_mining_screen(self):
+        #draw background
+        self.screen.fill((50, 50, 100))  # Blue background
+  
+        #draw mining window
+        if not self.mining_window.visible:
+            self.mining_window.visible = True
+
+        self.mining_window.draw(self.screen)
+
+        #draw inventory if open
+        if self.show_inventory:
+            self.inventory_window.draw(self.screen)
 
     #draw crafting type selection screen
     def draw_crafting_select(self):

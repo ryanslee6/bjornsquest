@@ -1,0 +1,38 @@
+{
+    "bronze_pickaxe": {
+        "name": "Bronze Pickaxe",
+        "type": "Tool",
+        "tool_type": "Pickaxe",
+        "hands": 1,
+        "gathering_power": 5,
+        "mining_speed_bonus": 0,
+        "description": "A basic mining tool",
+        "rarity": "common",
+        "required_level": 1,
+        "stackable": false
+    },
+    "iron_pickaxe": {
+        "name": "Iron Pickaxe",
+        "type": "Tool",
+        "tool_type": "Pickaxe",
+        "hands": 1,
+        "gathering_power": 15,
+        "mining_speed_bonus": 0.1,
+        "description": "A sturdy iron pickaxe",
+        "rarity": "common",
+        "required_level": 3,
+        "stackable": false
+    },
+    "steel_pickaxe": {
+        "name": "Steel Pickaxe",
+        "type": "Tool",
+        "tool_type": "Pickaxe",
+        "hands": 1,
+        "gathering_power": 25,
+        "mining_speed_bonus": 0.25,
+        "description": "A reliable steel pickaxe",
+        "rarity": "uncommon",
+        "required_level": 5,
+        "stackable": false
+    }
+}

@@ -89,6 +89,10 @@ class SaveSystem:
                 'mp': player.stats.mp,
             },
 
+            #gathering profs
+            'mining_level': player.mining_level,
+            'mining_xp': player.mining_xp,
+
             #unlocks
             'unlocks': {
                 'auto_combat': player.auto_combat_unlocked,
@@ -272,6 +276,10 @@ class SaveSystem:
         player.stats.dexterity = base_dex
         player.stats.constitution = base_con
         player.stats.intelligence = base_int
+
+        #gathering profs
+        player.mining_xp = player_data.get('mining_xp', 0)
+        player.mining_level = player_data.get('mining_level', 1)
 
         #recalculate derived stats
         player.stats.recalc_stats()

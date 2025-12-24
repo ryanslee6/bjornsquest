@@ -1,0 +1,92 @@
+{
+    "copper_ore": {
+        "name": "Copper Ore",
+        "difficulty": 10,
+        "base_action_time": 3,
+        "xp_reward": 17,
+        "required_level": 1,
+        "respawn_time": 5,
+        "max_health": 3,
+        "description": "A common reddish-brown ore"
+    },
+    "tin_ore": {
+        "name": "Tin Ore",
+        "difficulty": 10,
+        "base_action_time": 3,
+        "xp_reward": 17,
+        "required_level": 1,
+        "respawn_time": 5,
+        "max_health": 3,
+        "description": "A silvery ore used in bronze alloys"
+    },
+    "iron_ore": {
+        "name": "Iron Ore",
+        "difficulty": 35,
+        "base_action_time": 4.5,
+        "xp_reward": 35,
+        "required_level": 15,
+        "respawn_time": 6,
+        "max_health": 3,
+        "description": "A sturdy gray ore"
+    },
+    "silver_ore": {
+        "name": "Silver Ore",
+        "difficulty": 75,
+        "base_action_time": 5,
+        "xp_reward": 40,
+        "required_level": 20,
+        "respawn_time": 6,
+        "max_health": 3,
+        "description": "A shiny white ore"
+    },
+    "coal": {
+        "name": "Coal",
+        "difficulty": 100,
+        "base_action_time": 5.5,
+        "xp_reward": 50,
+        "required_level": 25,
+        "respawn_time": 6.5,
+        "max_health": 3,
+        "description": "A black, carbon-rich mineral"
+    },
+    "gold_ore": {
+        "name": "Gold Ore",
+        "difficulty": 150,
+        "base_action_time": 6,
+        "xp_reward": 65,
+        "required_level": 30,
+        "respawn_time": 6.5,
+        "max_health": 3,
+        "description": "A precious yellow ore"
+    },
+    "mithril_ore": {
+        "name": "Mithril Ore",
+        "difficulty": 200,
+        "base_action_time": 6.5,
+        "xp_reward": 80,
+        "required_level": 35,
+        "respawn_time": 7,
+        "max_health": 3,
+        "description": "A rare blue-purple ore"
+    },
+    "adamantite_ore": {
+        "name": "Adamantite Ore",
+        "difficulty": 250,
+        "base_action_time": 7,
+        "xp_reward": 95,
+        "required_level": 40,
+        "respawn_time": 8,
+        "max_health": 3,
+        "description": "A greenish rare ore"
+    },
+    "runite_ore": {
+        "name": "Runite Ore",
+        "difficulty": 300,
+        "base_action_time": 8,
+        "xp_reward": 110,
+        "required_level": 45,
+        "respawn_time": 9,
+        "max_health": 3,
+        "description": "The rarest cyan-blue ore"
+    }
+}

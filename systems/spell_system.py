@@ -33,7 +33,7 @@ class Spell:
             
             if os.path.exists(icon_path):
                 self.icon = pygame.image.load(icon_path).convert_alpha()
-                print(f"[SPELL] Loaded icon for {self.name}: {icon_path}")
+                #print(f"[SPELL] Loaded icon for {self.name}: {icon_path}")
             else:
                 print(f"[SPELL] Icon not found for {self.name}: {icon_path}")
         except Exception as e:

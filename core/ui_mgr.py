@@ -335,7 +335,7 @@ class InventoryWindow:
                         return True
                     
                     #equipment equipping
-                    if item.type in ("Armor", "Weapon"):
+                    if item.type in ("Armor", "Weapon", "Tool"):
                         equipped = self.game.player.equip_item(item)
 
                         if equipped:
@@ -582,6 +582,8 @@ class VendorWindow:
             {"id": "armor_strength_scroll_100", "price": 1},
             {"id": "armor_constitution_scroll_100", "price": 1},
             {"id": "armor_hp_scroll_100", "price": 1},
+            {"id": "bronze_pickaxe", "price": 1},
+            {"id": "iron_pickaxe", "price": 1},
 
             # ----- Training Equipment -----
             {"id": "basic_training_helmet", "price": 1},

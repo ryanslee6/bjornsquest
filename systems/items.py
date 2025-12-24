@@ -46,6 +46,11 @@ class Item:
         self.stat_bonus = data.get("stat_bonus", 0)
         self.is_safe_scroll = data.get("safe", True)
 
+        #tools
+        self.tool_type = data.get("tool_type", None)
+        self.gathering_power = data.get("gathering_power", 0)
+        self.mining_speed_bonus = data.get("mining_speed_bonus", 0.0)
+
         #rolled stats (actual values for this specific item)
         if rolled_stats:
             self.rolled_armor = rolled_stats.get("armor", None)

@@ -1,0 +1,75 @@
+
+{
+    "copper_ore": {
+        "name": "Copper Ore",
+        "type": "material",
+        "subtype": "ore",
+        "description": "A common reddish-brown ore",
+        "rarity": "common",
+        "stackable": true
+    },
+    "tin_ore": {
+        "name": "Tin Ore",
+        "type": "material",
+        "subtype": "ore",
+        "description": "A silvery ore used in bronze alloys",
+        "rarity": "common",
+        "stackable": true
+    },
+    "iron_ore": {
+        "name": "Iron Ore",
+        "type": "material",
+        "subtype": "ore",
+        "description": "A sturdy gray ore",
+        "rarity": "common",
+        "stackable": true
+    },
+    "silver_ore": {
+        "name": "Silver Ore",
+        "type": "material",
+        "subtype": "ore",
+        "description": "A shiny white ore",
+        "rarity": "uncommon",
+        "stackable": true
+    },
+    "coal": {
+        "name": "Coal",
+        "type": "material",
+        "subtype": "ore",
+        "description": "A black, carbon-rich mineral",
+        "rarity": "uncommon",
+        "stackable": true
+    },
+    "gold_ore": {
+        "name": "Gold Ore",
+        "type": "material",
+        "subtype": "ore",
+        "description": "A precious yellow ore",
+        "rarity": "uncommon",
+        "stackable": true
+    },
+    "mithril_ore": {
+        "name": "Mithril Ore",
+        "type": "material",
+        "subtype": "ore",
+        "description": "A rare blue-purple ore",
+        "rarity": "rare",
+        "stackable": true
+    },
+    "adamantite_ore": {
+        "name": "Adamantite Ore",
+        "type": "material",
+        "subtype": "ore",
+        "description": "A greenish rare ore",
+        "rarity": "epic",
+        "stackable": true
+    },
+    "runite_ore": {
+        "name": "Runite Ore",
+        "type": "material",
+        "subtype": "ore",
+        "description": "The rarest cyan-blue ore",
+        "rarity": "legendary",
+        "stackable": true
+    }
+}
