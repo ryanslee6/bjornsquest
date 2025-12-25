@@ -2,6 +2,7 @@ import pygame
 import os
 from settings import *
 from settings import RARITY_COLORS
+from core.font_manager import FontManager
 
 
 #spell_slots = {}
@@ -14,7 +15,8 @@ class InventoryWindow:
         self.bg_color = (40, 40, 40)
         self.border_color = (200, 200, 200)
         self.text_color = (255, 255, 255)
-        self.font = pygame.font.Font(None, 22)
+        self.font_mgr = FontManager()
+        self.font = self.font_mgr.get(22)
 
         self.scroll_offset = 0
         self.max_scroll = 0
@@ -549,8 +551,11 @@ class VendorWindow:
         self.bg_color = (35, 35, 45)
         self.border_color = (200, 200, 200)
         self.text_color = (255, 255, 255)
-        self.font = pygame.font.Font(None, 24)
-        self.small_font = pygame.font.Font(None, 20)
+
+        #fonts
+        self.font_mgr = FontManager()
+        self.font = self.font_mgr.get(24)
+        self.small_font = self.font_mgr.get(20)
 
         #position (centered)
         self.x = SCREEN_WIDTH // 2 - self.width // 2
@@ -1143,9 +1148,10 @@ class SpellbookWindow:
         self.spell_selected_color = (80, 120, 180)
 
         #fonts
-        self.title_font = pygame.font.Font(None, 32)
-        self.font = pygame.font.Font(None, 24)
-        self.small_font = pygame.font.Font(None, 20)
+        self.font_mgr = FontManager()
+        self.title_font = self.font_mgr.get(32)
+        self.font = self.font_mgr.get(24)
+        self.small_font = self.font_mgr.get(20)
 
         #Pagination
         self.current_page = 0
@@ -1501,8 +1507,10 @@ class CharacterWindow:
         self.x = 50
         self.y = 50
 
-        self.font = pygame.font.Font(None, 26)
-        self.small_font = pygame.font.Font(None, 22)
+        #fonts
+        self.font_mgr = FontManager()
+        self.font = self.font_mgr.get(26)
+        self.small_font = self.font_mgr.get(22)
 
         self.equip_rects = {} # slot_name → rect
 
@@ -1754,8 +1762,10 @@ class LevelUpWindow:
         self.x = SCREEN_WIDTH // 2 - self.width // 2
         self.y = SCREEN_HEIGHT // 2 - self.height // 2
 
-        self.font = pygame.font.Font(None, 28)
-        self.small_font = pygame.font.Font(None, 24)
+        #fonts
+        self.font_mgr = FontManager()
+        self.font = self.font_mgr.get(28)
+        self.small_font = self.font_mgr.get(24)
 
         self.buttons = []
 
@@ -1924,8 +1934,10 @@ class EnhancementConfirmationWindow:
         self.bg_color = (30, 30, 30)
         self.border_color = (150, 150, 150)
 
-        self.font = pygame.font.Font(None, 24)
-        self.title_font = pygame.font.Font(None, 30)
+        #fonts
+        self.font_mgr = FontManager()
+        self.font = self.font_mgr.get(24)
+        self.title_font = self.font_mgr.get(30)
 
         self.confirm_button = None
         self.cancel_button = None

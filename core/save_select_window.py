@@ -1,6 +1,7 @@
 import pygame
 from settings import *
 from datetime import datetime
+from core.font_manager import FontManager
 
 class SaveSelectWindow:
     #ui window for selecting a save file to load
@@ -22,9 +23,10 @@ class SaveSelectWindow:
         self.selected_color = (80, 120, 180)
 
         #fonts
-        self.title_font = pygame.font.Font(None, 36)
-        self.font = pygame.font.Font(None, 24)
-        self.small_font = pygame.font.Font(None, 20)
+        self.font_mgr = FontManager()
+        self.title_font = self.font_mgr.get(36)
+        self.font = self.font_mgr.get(24)
+        self.small_font = self.font_mgr.get(20)
 
         #save list
         self.saves = []

@@ -1,5 +1,6 @@
 import pygame
 from settings import *
+from core.font_manager import FontManager
 
 class CharacterCreationWindow:
     def __init__(self, game):
@@ -19,9 +20,10 @@ class CharacterCreationWindow:
         self.input_active_color = (80, 80, 100)
 
         #fonts
-        self.title_font = pygame.font.Font(None, 36)
-        self.font = pygame.font.Font(None, 28)
-        self.small_font = pygame.font.Font(None, 22)
+        self.font_mgr = FontManager()
+        self.title_font = self.font_mgr.get(36)
+        self.font = self.font_mgr.get(28)
+        self.small_font = self.font_mgr.get(22)
 
         #input field
         self.input_text = ""

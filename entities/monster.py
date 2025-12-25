@@ -3,81 +3,171 @@ import pygame, json, os
 import time
 import random
 
-class Monster:
+_MONSTER_DATA_CACHE = None
+_MONSTER_DATA_PATH = os.path.join("data", "monster_list.json")
+
+def _load_monster_data():
+    global _MONSTER_DATA_CACHE
+
+    if _MONSTER_DATA_CACHE is not None:
+        return _MONSTER_DATA_CACHE
     
+    print(f"[MONSTER] Loading monster data from {_MONSTER_DATA_PATH}...")
 
-    def __init__(self, name):       
-        MONSTER_DATA_PATH = os.path.join("data", "monster_list.json")
-        ABILITIES_PATH = os.path.join("data", "abilities.json")
-        try:
-            with open(ABILITIES_PATH, "r") as f:
-                ABILITIES_DATA = json.load(f)
-        except FileNotFoundError:
-            ABILITIES_PATH = {}
-            print("[WARN] abilities.json not found – monsters won’t cast abilities.")
+    try:
+        with open(_MONSTER_DATA_PATH, "r") as f:
+            _MONSTER_DATA_CACHE = json.load(f)
 
+        print(f"[MONSTER] ✅ Loaded {len(_MONSTER_DATA_CACHE)} monster types")
+        return _MONSTER_DATA_CACHE
+    
+    except FileNotFoundError:
+        print(f"[MONSTER] ❌ ERROR: {_MONSTER_DATA_PATH} not found!")
+        _MONSTER_DATA_CACHE = {}
+        return _MONSTER_DATA_CACHE
+    
+    except json.JSONDecodeError as e:
+        print(f"[MONSTER] ❌ ERROR: Invalid JSON in {_MONSTER_DATA_PATH}: {e}")
+        _MONSTER_DATA_CACHE = {}
+        return _MONSTER_DATA_CACHE
+        
 
-        with open(MONSTER_DATA_PATH, "r") as f:
-            MONSTER_DATA = json.load(f)
-
-        data = MONSTER_DATA[name]   
+class Monster:
+    def __init__(self, name, level = 1):       
         self.name = name
-        self.level = data["level"]
+        self.level = level
+        self.active_effects = []
+        self.current_shield = 0
+        self.is_poison_protected = False
+
+        #load data from cache
+        monster_data = _load_monster_data()
+
+        #get this monsters template
+        template = monster_data.get(name)
+
+        if not template:
+            print(f"[MONSTER] ⚠️ WARNING: No data found for '{name}', using defaults")
+            self._init_default_stats()
+            return
+        
+        #initialize from template
+        self._init_from_template(template, level)
+
+    #fallback stats if monster not found in JSON
+    def _init_default_stats(self):
+        if Stats is None:
+            print("[MONSTER] Error: Cannot create stats - Stats class not imported!")
+            return
         
         self.stats = Stats(
-            hp = data["base_hp"],
-            mp = data["base_mp"],
-            strength = data["strength"],
-            dexterity = data["dexterity"],
-            constitution = data["constitution"],
-            intelligence = data["intelligence"],
-            min_damage = data.get("min_damage", 1),
-            max_damage = data.get("max_damage", 3),
-            dodge_chance = data.get("dodge_chance", 0.0),
-            attack_speed = data.get("attack_speed", 1.0),
-            hit_chance = data.get("hit_chance", 0.90),
+            hp = 50,
+            mp = 20,
+            strength = 5,
+            dexterity = 5,
+            constitution = 5,
+            intelligence = 5,
+            min_damage = 3,
+            max_damage = 8,
+            dodge_chance = 0.05,
+            attack_speed = 2.0,
             is_player = False
         )
-        
-        self.abilities = data.get("abilities", [])
-        self.ability_cooldowns = {ability_id: 0.0 for ability_id in self.abilities}
 
-        self.passives = data.get("passives", [])
+        self.stats.armor = 2
 
-        self.current_shield = 0
-        self.max_shield = 0
+        self.exp_reward = 10
+        self.abilities = []
+        self.sprite = None
+        self.ability_cooldowns = {}
+        self.passives = []
 
-        #passive skill debug
-        #print(f"[DEBUG] Monster {self.name} passives loaded:", self.passives)
+    #initialize monster from json template data
+    def _init_from_template(self, template, level):
+        if Stats is None:
+            print("[MONSTER] Error: Cannot create stats - Stats class not imported!")
+            self._init_default_stats()
+            return
 
-    
+        #scale stats by level
+        hp = template.get("base_hp", 50)
+        mp = template.get("base_mp", 20)
 
-        self.exp_reward = data["exp_reward"]
-        self.sprite_path = os.path.join("assets", "images", data["sprite"])
-        self.sprite = pygame.image.load(self.sprite_path).convert_alpha()
-        
-        scale = data.get("scale", 1.0)
+        strength = template.get("strength", 5)
+        dexterity = template.get("dexterity", 5)
+        constitution = template.get("constitution", 5)
+        intelligence = template.get("intelligence", 5)
 
-        if scale != 1.0:
-            w = int(self.sprite.get_width() * scale)
-            h = int(self.sprite.get_height() * scale)
-            self.sprite = pygame.transform.scale(self.sprite, (w, h))
-        
-        self.alive = True
+        min_dmg = template.get("min_damage", 3)
+        max_dmg = template.get("max_damage", 8)
+        armor = template.get("armor", 2)
 
-        self.active_effects = []
+        dodge_chance = template.get("dodge_chance", 0.05)
+        attack_speed = template.get("attack_speed", 2.0)
 
-        
-        
-        #try:
-        #    self.sprite = pygame.image.load("assets/images/goblin1.png").convert_alpha()
-        #except:
-        #    self.sprite = None
-        #    print("⚠️ Goblin sprite missing — using placeholder box.")
+        #create Stats object using existing class
+        self.stats = Stats(
+            hp = hp,
+            mp = mp,
+            strength = strength,
+            dexterity = dexterity,
+            constitution = constitution,
+            intelligence = intelligence,
+            min_damage = min_dmg,
+            max_damage = max_dmg,
+            dodge_chance = dodge_chance,
+            attack_speed = attack_speed,
+            is_player = False
+        )
 
-        #if self.sprite:
-        #    self.sprite = pygame.transform.scale(self.sprite, (180, 160))
+        #armor
+        self.stats.armor = armor
 
+        #experience reward
+        self.exp_reward = template.get("exp_reward", 10) + (level - 1) * 5
+
+        #abilities
+        self.abilities = template.get("abilities", [])
+        self.ability_cooldowns = {ability: 0 for ability in self.abilities}
+        self.passives = template.get("passives", [])
+
+        #load sprite
+        sprite_file = template.get("sprite")
+        self.sprite = self._load_sprite(sprite_file) if sprite_file else None
+
+    #load monster sprite image
+    def _load_sprite(self, sprite_file):
+        sprite_path = os.path.join("assets", "images", sprite_file)
+
+        if os.path.exists(sprite_path):
+            try:
+                sprite = pygame.image.load(sprite_path).convert_alpha()
+
+                max_width = 200
+                max_height = 180
+
+                #get current size
+                width, height = sprite.get_size()
+
+                #calculate scaling to fit within max bounds while preserving aspect ratio
+                scale_x = max_width / width if width > max_width else 1
+                scale_y = max_height / height if height > max_height else 1
+                scale = min(scale_x, scale_y)
+
+                #apply scaling if needed
+                if scale < 1:
+                    new_width = int(width * scale)
+                    new_height = int(height * scale)
+                    sprite = pygame.transform.scale(sprite, (new_width, new_height))
+                                 
+                print(f"[MONSTER] Loaded sprite: {sprite_file}({sprite.get_width()}x{sprite.get_height()})")
+                return sprite
+            except Exception as e:
+                print(f"[MONSTER] ⚠️ Error loading sprite {sprite_file}: {e}")
+                return None
+        else:
+            print(f"[MONSTER] ⚠️ Sprite not found: {sprite_path}")
+            return None
 
     def is_alive(self):
         return self.stats.hp > 0
@@ -120,68 +210,46 @@ class Monster:
         return hp_damage, shield_damage, shield_broke
     
     def attack(self, target, game = None):
-        import random
+        #compute effective stats with active effects
+        eff = self.stats.compute_effective_stats(self.active_effects)
 
-        
-        # -----------------------------------------------
-        # 1) TRY TO CAST AN ABILITY IF AVAILABLE
-        # -----------------------------------------------
-
-        if self.abilities and game:
-            ability_name = self.choose_ability(game)
-
-            if ability_name == "enrage":
-                ability_name = None
-                
-            if ability_name:
-                self.cast_ability(ability_name, target, game)
-                return 0, False, False, False
-        
-        #miss check
-        is_miss = random.random() > self.stats.hit_chance
-        if is_miss:
+        #check for miss (5% base)
+        if random.random() < 0.05:
             return 0, True, False, False
-
-        #dodge check
-        is_dodged = random.random() < target.stats.dodge_chance
-        if is_dodged:
+        
+        #check if target dodges
+        target_eff = target.stats.compute_effective_stats(
+            getattr(target, "active_effects", [])
+        )
+        if random.random() < target_eff.get("dodge_chance", 0):
             return 0, False, False, True
         
-        if getattr(self, "is_stunned", False):
-            return 0, False, False, False
-        
-        eff = self.stats.compute_effective_stats(self.active_effects)
-        target_eff = target.stats.compute_effective_stats(target.active_effects)
+        #calculate base damage
+        base_damage = random.randint(
+            int(eff["min_damage"]),
+            int(eff["max_damage"])
+        )
 
-        min_dmg = eff["min_damage"]
-        max_dmg = eff["max_damage"]
-        armor = target_eff["armor"]
-        
-        #base damage
-        min_dmg, max_dmg = self.stats.get_damage_range()
-        base_damage = random.randint(min_dmg, max_dmg)
+        #check for critical hit
+        is_crit = random.random() < eff["crit_chance"]
+        if is_crit:
+            base_damage = int(base_damage * 2)
 
-        #crit check
-        is_crit = random.random() < self.stats.crit_chance
-        if is_crit:    
-            base_damage *= 2
-        
+        #apply armor reduction
+        armor = target_eff.get("armor", 0)
+        damage_multiplier = 100 / (100 + armor)
+        final_damage = int(base_damage * damage_multiplier)
+        final_damage = max(1, final_damage) #minimum 1 damage
 
-        #armor reduction
-        armor = target.stats.armor
-        if armor > 0:
-            damage_reduction = armor / (armor + 400)
-            final_damage = int(base_damage * (1 - damage_reduction))
-        else:
-            final_damage = base_damage
+        #apply damage to target
+        target.stats.hp = max(0, target.stats.hp - final_damage)
 
-        final_damage = max(1, final_damage)
-        
-        hp_dmg, shield_dmg, shield_broke = target.take_damage(final_damage)
+        final_damage = int(final_damage)
 
-        self.apply_on_hit_passives(final_damage, target, game)
+        if game is not None:
+            self.apply_on_hit_passives(final_damage, target, game)
 
-        return final_damage, is_miss, is_crit, is_dodged
+        return final_damage, False, is_crit, False
     
     def add_status_effect(self, name, duration, icon = None, color = (200, 200, 200)):
         if not hasattr(self, "active_effects"):
@@ -216,29 +284,27 @@ class Monster:
 
         self.active_effects = new_list
 
+    #choose which ability to cast (if any)
     def choose_ability(self, game):
         #no abilities
         if not self.abilities:
             return None
         
-        ability_data = game.ability_data
-        now = time.time()
+        current_time = time.time()
 
-        for ability_name in self.abilities:
-            ability = ability_data.get(ability_name)
-            if not ability:
-                continue
+        #filter abilities that are off cooldown
+        available = [
+            ability for ability in self.abilities
+            if current_time >= self.ability_cooldowns.get(ability, 0)
+        ]
 
-            cd = ability.get("cooldown", 5)
-            chance = ability.get("chance", 1.0)
-            last_cast = self.ability_cooldowns.get(ability_name, -9999)
-
-            if now - last_cast < cd:
-                continue
-            
-            if random.random() <= chance:
-                return ability_name
-            
+        if not available:
+            return None
+        
+        #30% chance to use an ability
+        if random.random() < 0.3:
+            return random.choice(available)
+        
         return None
         
     def cast_ability(self, ability_name, target, game):
@@ -250,7 +316,8 @@ class Monster:
             print(f"[ABILITY] {self.name} casts {ability_name}!")
 
             # Cooldown
-            self.ability_cooldowns[ability_name] = time.time()
+            cooldown_duration = ability.get("cooldown", 5.0)
+            self.ability_cooldowns[ability_name] = time.time() + cooldown_duration
 
             duration = ability.get("duration", 5)
             effects = ability.get("effects", {})

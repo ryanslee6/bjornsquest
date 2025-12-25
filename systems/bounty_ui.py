@@ -1,6 +1,7 @@
 import pygame
 from systems.bounty_system import BountyBoard, BountyTier, Bounty
 from typing import Optional
+from core.font_manager import FontManager
 
 class BountyBoardUI:
     #handles displaying bounty board and user interactions
@@ -28,6 +29,7 @@ class BountyBoardUI:
         }
 
         #fonts
+        self.font_mgr = FontManager()
         self.title_font = None
         self.text_font = None
         self.small_font = None
@@ -35,11 +37,6 @@ class BountyBoardUI:
         #button areas (calculated when drawing)
         self.claim_buttons = {} #maps bounty_id to rect
         self.add_bounty_buttons = {} #maps tier to rect
-
-    def initialize_fonts(self, title_size: int = 32, text_size: int = 20, small_size: int = 16):
-        self.title_font = pygame.font.Font(None, title_size)
-        self.text_font = pygame.font.Font(None, text_size)
-        self.small_font = pygame.font.Font(None, small_size)
 
     def toggle_visibility(self):
         #show/hide the board
@@ -52,7 +49,9 @@ class BountyBoardUI:
         
         #make sure fonts are initialized
         if self.title_font is None:
-            self.initialize_fonts()
+            self.title_font = self.font_mgr.get(32)
+            self.text_font = self.font_mgr.get(20)
+            self.small_font = self.font_mgr.get(16)
 
         #reset button tracking
         self.claim_buttons.clear()

@@ -5,6 +5,7 @@ import math
 from entities.monster import Monster
 from random import randint
 from systems.spell_system import get_default_spellbook
+from core.font_manager import FontManager
 
 
 class CombatManager:
@@ -56,13 +57,8 @@ class CombatManager:
         self.enrage_flash_timer = 0
         self.enrage_flash_alpha = 0
 
-        # Font cache for performance - create once, reuse many times
-        self.font_cache = {
-            35: pygame.font.Font(None, 35),
-            40: pygame.font.Font(None, 40),
-            70: pygame.font.Font(None, 70),
-            80: pygame.font.Font(None, 80),
-        }
+        #font
+        self.font_mgr = FontManager()
 
         self.cached_player_eff = None
         self.cached_monster_eff = None
@@ -209,37 +205,14 @@ class CombatManager:
             self.monster_effects_hash = current_monster_hash
         
         monster_eff = self.cached_monster_eff
-        ability = self.current_monster.choose_ability(self.game)
-        
-        # effects DEBUG
-        #print("Monster Effective Stats:",
-        #    "DMG", monster_eff["min_damage"], "-", monster_eff["max_damage"],
-        #    "| AS", monster_eff["attack_speed"],
-        #    "| Armor", monster_eff["armor"],
-        #    "| Effects:", self.current_monster.active_effects)
-        
+        ability = self.current_monster.choose_ability(self.game)    
 
         if current_time - self.last_monster_attack >= monster_eff["attack_speed"]:
             if self.player.is_alive() and self.current_monster.is_alive():
                 dmg, is_miss, is_crit, is_dodged = self.current_monster.attack(self.player, self.game)
                 
-                #if ability:
-                #    self.add_log(f"{self.current_monster.name} uses {ability}!")
-                #    self.current_monster.cast_ability(ability, self.player, self.game)
-                    
-                #    if self.current_monster.active_effects:
-                #        latest_effect = self.current_monster.active_effects[-1]
-                #        display_name = latest_effect["name"]
-                #    else:
-                #        ability_data = self.game.ability_data.get(ability, {})
-                #        display_name = ability_data.get("name", ability)
-            
-                #    self.add_floating_text(
-                #        display_name,
-                #        0, 0,
-                #        text_type = "buff",
-                #        target = "enemy"
-                #    )
+                if ability:
+                    self.current_monster.cast_ability(ability, self.player, self.game)
                 
                 if is_miss:
                     self.add_log(f"{self.current_monster.name} misses {self.player.name}!")
@@ -369,10 +342,7 @@ class CombatManager:
 
         # Pre-render all surfaces once at creation time for performance
         font_size = style["font_size"]
-        if font_size not in self.font_cache:
-            self.font_cache[font_size] = pygame.font.Font(None, font_size)
-
-        font = self.font_cache[font_size]
+        font = self.font_mgr.get(font_size)
         scale = 1.0
 
         # Pre-render main text

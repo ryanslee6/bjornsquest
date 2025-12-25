@@ -1,6 +1,7 @@
 import pygame
 from settings import *
 from settings import RARITY_COLORS
+from core.font_manager import FontManager
 
 
 #mining window ui
@@ -21,9 +22,10 @@ class MiningWindow:
         self.text_color = (255, 255, 255)
 
         #fonts
-        self.title_font = pygame.font.Font(None, 36)
-        self.font = pygame.font.Font(None, 24)
-        self.small_font = pygame.font.Font(None, 20)
+        self.font_mgr = FontManager()
+        self.title_font = self.font_mgr.get(36)
+        self.font = self.font_mgr.get(24)
+        self.small_font = self.font_mgr.get(20)
 
         #UI elements
         self.node_buttons = {}

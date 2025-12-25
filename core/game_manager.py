@@ -23,14 +23,21 @@ from core.character_creation_window import CharacterCreationWindow
 from core.window_manager import WindowManager, GameWindow
 from systems.mining_system import MiningSystem
 from systems.mining_ui import MiningWindow
+from core.font_manager import FontManager
 
 
 class GameManager:
     def __init__(self, screen):
         self.screen = screen
-        self.font = pygame.font.SysFont(None, 36)
-        self.float_font = pygame.font.Font(None, 42)
-        self.font_small = pygame.font.Font(None, 24)
+        
+        #fonts
+        self.font_mgr = FontManager()
+        self.font_mgr.preload_common_sizes()
+        self.font = self.font_mgr.get(36)
+        self.float_font = self.font_mgr.get(42)
+        self.font_small = self.font_mgr.get(24)
+        self.fps_font = self.font_mgr.get(30)
+
         self.state = "title"
         self.title_image = self.load_image("bq_titlescreen.png")
         self.home_image = self.load_image("bq_campsite.png")
@@ -66,7 +73,7 @@ class GameManager:
         self.character_window = CharacterWindow(self)
         self.combat_log_offset = 0
         self.combat_log_at_bottom = True
-        self.fps_font = pygame.font.Font(None, 30)
+        
         self.ability_manager = AbilityManager()
         ABILITIES_PATH = os.path.join("data", "abilities.json")
         with open(ABILITIES_PATH, "r") as f:

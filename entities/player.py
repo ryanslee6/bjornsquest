@@ -422,11 +422,11 @@ class Player:
         armor = target.stats.armor
         if armor > 0:
             damage_reduction = armor / (armor + 400)
-            final_damage = int(base_damage) * (1 - damage_reduction)
+            final_damage = int(base_damage * (1 - damage_reduction))
         else:
-            final_damage = base_damage
+            final_damage = int(base_damage)
 
-        final_damage = max(1, final_damage)
+        final_damage = max(1, int(final_damage))
 
         #apply damage
         hp_dmg, shield_dmg, shield_broke = target.take_damage(final_damage)
