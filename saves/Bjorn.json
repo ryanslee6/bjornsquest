@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "1.0",
-    "save_date": "2025-12-24T16:38:53.551449",
+    "save_date": "2025-12-25T09:21:03.048325",
     "character_name": "Bjorn",
     "level": 8,
     "playertime": 0
@@ -33,21 +33,6 @@
         "qty": 21
       },
       {
-        "type": "stackable",
-        "id": "mana_potion_small",
-        "qty": 2
-      },
-      {
-        "type": "stackable",
-        "id": "anti_poison_potion",
-        "qty": 4
-      },
-      {
-        "type": "stackable",
-        "id": "tin_ore",
-        "qty": 9
-      },
-      {
         "type": "unique",
         "item_data": {
           "id": "bronze_pickaxe",
@@ -64,6 +49,21 @@
         "type": "stackable",
         "id": "copper_ore",
         "qty": 24
+      },
+      {
+        "type": "stackable",
+        "id": "mana_potion_small",
+        "qty": 2
+      },
+      {
+        "type": "stackable",
+        "id": "anti_poison_potion",
+        "qty": 4
+      },
+      {
+        "type": "stackable",
+        "id": "tin_ore",
+        "qty": 9
       }
     ],
     "equipment": {
@@ -119,7 +119,7 @@
     "active_effects": []
   },
   "game_state": {
-    "current_monster": "Svartvefnir",
+    "current_monster": null,
     "monster_page": 0,
     "playtime": 0,
     "bounties": [

@@ -477,7 +477,7 @@ class GameManager:
         
         if event.type == pygame.MOUSEBUTTONUP:
             if event.button == 1: #left click released
-                if self.inventory_window.dragging_item:
+                if self.inventory_window.dragging_index is not None:
                     self.inventory_window.release_drag(event.pos)
                     return True
         

@@ -33,9 +33,9 @@ def _load_monster_data():
         
 
 class Monster:
-    def __init__(self, name, level = 1):       
+    def __init__(self, name, level = None):       
         self.name = name
-        self.level = level
+        
         self.active_effects = []
         self.current_shield = 0
         self.is_poison_protected = False
@@ -45,6 +45,11 @@ class Monster:
 
         #get this monsters template
         template = monster_data.get(name)
+
+        if level is None and template:
+            self.level = template.get("level", 1)
+        else:
+            self.level = level if level is not None else 1
 
         if not template:
             print(f"[MONSTER] ⚠️ WARNING: No data found for '{name}', using defaults")
@@ -124,7 +129,7 @@ class Monster:
         self.stats.armor = armor
 
         #experience reward
-        self.exp_reward = template.get("exp_reward", 10) + (level - 1) * 5
+        self.exp_reward = template.get("exp_reward", 10)
 
         #abilities
         self.abilities = template.get("abilities", [])

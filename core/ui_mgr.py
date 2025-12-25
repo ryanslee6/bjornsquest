@@ -4,9 +4,6 @@ from settings import *
 from settings import RARITY_COLORS
 from core.font_manager import FontManager
 
-
-#spell_slots = {}
-
 class InventoryWindow:
     def __init__(self, game):
         self.game = game
@@ -36,10 +33,8 @@ class InventoryWindow:
         self.needs_rebuild = True
 
         #drag-and-drop state
-        self.dragging_item = None #(rect, entry, cache_key) tuple
-        self.drag_start_index = None #original index in inventory
-        self.drag_mouse_offset = (0, 0) #offset from mouse to item rect
-        self.just_released_drag = False #prevent immediate re-drag
+        self.dragging_index = None
+        self.drag_mouse_offset = (0, 0)
 
     def mark_dirty(self):
         #call this whenever inventory changes
@@ -55,28 +50,24 @@ class InventoryWindow:
         #build cache - handle both stackable id and equipment
         self.cached_items = {}
         
-        for entry in self.game.player.inventory:
+        for i, entry in enumerate(self.game.player.inventory):
             if "item" in entry:
                 #equpment - already an Item object
                 item = entry["item"]
-                self.cached_items[id(item)] = item #use object ID as key
+                #use inventory index as cache key for simplicity
+                self.cached_items[i] = item
             else:
                 #stackable - use item_id
                 item_id = entry["id"]
-                self.cached_items[item_id] = self.game.items.get(item_id)
+                self.cached_items[i] = self.game.items.get(item_id)
 
         #build item rectangles (position only, no drawing)
         entry_height = 32
         y_offset = 40
 
-        for entry in self.game.player.inventory:
-            #get the item (handle both formats)
-            if "item" in entry:
-                item = entry["item"]
-                cache_key = id(item)
-            else:
-                item = self.cached_items[entry["id"]]
-                cache_key = entry["id"]
+        for i, entry in enumerate(self.game.player.inventory):
+            #get the item from cache
+            item = self.cached_items[i]
 
             #lock font + build name surface
             if item.name_font is None:
@@ -85,7 +76,7 @@ class InventoryWindow:
             item.rebuild_name_surface(item.name_font)
 
             rect = pygame.Rect(10, y_offset, self.width - 40, 28)
-            self.item_rects.append((rect, entry, cache_key))
+            self.item_rects.append((rect, i))
             y_offset += entry_height
 
         #calculate max scroll
@@ -93,25 +84,40 @@ class InventoryWindow:
         visible_height = self.height - 70 #space between header and footer
         self.max_scroll = max(0, total_height - visible_height)
 
+    #helper function to safely get an item from cache
+    def _get_item_at_index(self, index):
+        if index < 0 or index >= len(self.cached_items):
+            return None
+        return self.cached_items.get(index)
+    
+    #helper to get the inventory entry at a specific index
+    def _get_entry_at_index(self, index):
+        if index < 0 or index >= len(self.game.player.inventory):
+            return None
+        return self.game.player.inventory[index]
+
+    #draw the item currently being dragged at the mouse position
     def _draw_dragged_item(self, screen, mouse_pos):
-        #draw the item currently being dragged at the mouse position
-        if not self.dragging_item:
+        if self.dragging_index is None:
             return
         
-        rect, entry, cache_key = self.dragging_item
-        item = self.cached_items[cache_key]
+        item = self._get_item_at_index(self.dragging_index)
+        entry = self._get_entry_at_index(self.dragging_index)
+
+        if not item or not entry:
+            return
 
         #calculate draw position (mouse - offset)
         draw_x = mouse_pos[0] - self.drag_mouse_offset[0]
         draw_y = mouse_pos[1] - self.drag_mouse_offset[1]
 
         #draw semi-transparent version of the item
-        drag_rect = pygame.Rect(draw_x, draw_y, rect.width, rect.height)
+        drag_rect = pygame.Rect(draw_x, draw_y, self.width - 40, 28)
+        drag_surface = pygame.Surface((drag_rect.width, drag_rect.height), pygame.SRCALPHA)
 
-        #draw with slight transparency
-        drag_surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
-        pygame.draw.rect(drag_surface, (60, 60, 60, 200), (0, 0, rect.width, rect.height))
-        pygame.draw.rect(drag_surface, (120, 120, 255, 200), (0, 0, rect.width, rect.height), 2)
+        #draw with slight transparency       
+        pygame.draw.rect(drag_surface, (60, 60, 60, 200), (0, 0, drag_rect.width, drag_rect.height))
+        pygame.draw.rect(drag_surface, (120, 120, 255, 200), (0, 0, drag_rect.width, drag_rect.height), 2)
         
         #Draw icon
         if item.icon_small:
@@ -183,26 +189,22 @@ class InventoryWindow:
 
         #handle tooltip
         mouse_pos = pygame.mouse.get_pos()
-        for item_rect_data in self.item_rects:
-            #handle both old and new format
-            if len(item_rect_data) == 3:
-                rect, entry, cache_key = item_rect_data
-            else:
-                #old format - force rebuild
-                self.mark_dirty()
-                return
-            
-            #adjust rect for scroll offset
-            adjusted_rect = rect.move(x, y - self.scroll_offset)
-            
-            #only show tooltip if item is visible in the clipped area
-            if content_area.colliderect(adjusted_rect) and adjusted_rect.collidepoint(mouse_pos):
-                item = self.cached_items[cache_key]
-                self.draw_tooltip(screen, item, mouse_pos)
-                break
 
-        if self.dragging_item:
-            mouse_pos = pygame.mouse.get_pos()
+        #only show tooltip if were not dragging
+        if self.dragging_index is None:
+            for rect, index in self.item_rects:
+                #adjust rect for window position and scroll offset
+                adjusted_rect = rect.move(x, y - self.scroll_offset)
+
+                #only show tooltip if item is visiable and mouse is over it
+                if content_area.colliderect(adjusted_rect) and adjusted_rect.collidepoint(mouse_pos):
+                    item = self._get_item_at_index(index)
+                    if item:
+                        self.draw_tooltip(screen, item, mouse_pos)
+                    break
+        
+        #draw the dragged item last on top of everything
+        if self.dragging_index is not None:
             self._draw_dragged_item(screen, mouse_pos)
 
     def draw_tooltip(self, screen, item, mouse_pos):        
@@ -286,30 +288,20 @@ class InventoryWindow:
             ry += surf.get_height()
 
     def click(self, pos, button):
-        #prevent starting drag immediate after releasing one
-        if self.just_released_drag and button == 1:
-            self.just_released_drag = False
-            return True
-
         offset_x = SCREEN_WIDTH // 2 - self.width // 2 + 150
         offset_y = SCREEN_HEIGHT //2 - self.height // 2
 
-        for i, item_rect_data in enumerate(self.item_rects):
-            #handle both old and new format
-            if len(item_rect_data) == 3:
-                rect, entry, cache_key = item_rect_data
-            else:
-                #old format - force rebuild
-                self.mark_dirty()
-                return False
-            
+        for rect, index in self.item_rects:
             #adjust rect for window position and scroll offset
             adjusted_rect = rect.move(offset_x, offset_y - self.scroll_offset)
                 
             if adjusted_rect.collidepoint(pos):
-
                 #get the item
-                item = self.cached_items[cache_key]
+                item = self._get_item_at_index(index)
+                entry = self._get_entry_at_index(index)
+
+                if not item or not entry:
+                    continue
 
                 #for equipping/using, we need the item_id
                 if "item" in entry:
@@ -324,16 +316,9 @@ class InventoryWindow:
 
                     #consumable use
                     if item.type == "consumable":
-                        #t4 = time.perf_counter()
                         self.game.player.use_item(item_id, self.game.items)
-                        #print(f"[PERF] click - use_item: {(time.perf_counter() - t4) * 1000:.2f}ms")
-
-                        #t5 = time.perf_counter()
                         print(f"[ITEM] Used {item.name}")
                         self.mark_dirty()
-                        #print(f"[PERF] click - mark_dirty: {(time.perf_counter() - t5) * 1000:.2f}ms")
-
-                        #print(f"[PERF] click - TOTAL: {(time.perf_counter() - t_start) * 1000:.2f}ms")
                         return True
                     
                     #equipment equipping
@@ -348,21 +333,15 @@ class InventoryWindow:
                 # LEFT-CLICK → Start drag or apply scroll
                 # ----------------------------------------------
                 if button == 1:
-
                     #check if player has a scroll selected (enhancement mode)
                     if self.game.player.enhancement_scroll:
                         scroll = self.game.player.enhancement_scroll
 
-                        print(f"[DEBUG] In enhancement mode, clicked on: {item.name}")
-
                         #check if this item can be enhanced
                         can_enhance, error_msg = self.game.player.can_enhance_item(item, scroll)
 
-                        print(f"[DEBUG] Can enhance? {can_enhance}, Error: {error_msg}")
-
                         if can_enhance:
                             #show confirmation dialog
-                            print("[DEBUG] Showing confirmation dialog")
                             self.game.show_enhancement_confirmation(scroll, item)
                             return True
                         else:
@@ -370,30 +349,24 @@ class InventoryWindow:
                             print(f"[ENHANCE] {error_msg}")
                             return True
                         
-                    #normal drag behavior
-                    self.dragging_item = (rect, entry, cache_key)
-                    self.drag_start_index = i
-                    #calculate offset from mouse to rect top-left
-                    self.drag_mouse_offset = (pos[0] - adjusted_rect.x, pos[1] - adjusted_rect.y)
-                    #print(f"[DRAG]Started dragging {item.name}")
-                    
-                
-                    # CRITICAL DEBUG: Show what's ACTUALLY in the inventory at this index
-                    actual_item_at_index = self.game.player.inventory[i]
-                    print(f"[DRAG START] Visual item: {item.name}, Index: {i}")
-                    print(f"[DRAG START] Actual inventory[{i}]: {actual_item_at_index}")
-                    print(f"[DRAG START] Match? {actual_item_at_index == entry}")
-                    return True
+                    # ============================================
+                    # START DRAGGING
+                    # ============================================
+                    #only start drag if not already dragging
+                    if self.dragging_index is None:
+                        self.dragging_index = index
+                        #store the offset from mouse to top-left of the rect
+                        self.drag_mouse_offset = (pos[0] - adjusted_rect.x, pos[1] - adjusted_rect.y)
+                        print(f"[DRAG] Started dragging '{item.name}' from index {index}")
+                        return True
                 
         #clicked outside any item - clear enhancement mode if active
         if self.game.player.enhancement_scroll:
             print("[ENHANCE] Cancelled - clicked outside items")
             self.game.player.enhancement_scroll = None
             self.mark_dirty()
-
-                    
+                   
         return False
-
 
     def click_outside(self, pos):
         x = SCREEN_WIDTH // 2 - self.width // 2
@@ -401,55 +374,62 @@ class InventoryWindow:
         rect = pygame.Rect(x, y, self.width, self.height)
         return not rect.collidepoint(pos)
     
+    #handle mouse release - complete drag-and-drop or cancel
     def release_drag(self, pos):
-        #handle mouse release - complete drag-and-drop or cancel
-        if not self.dragging_item:
+        if self.dragging_index is None:
             return False
 
         offset_x = SCREEN_WIDTH // 2 - self.width // 2 + 150
         offset_y = SCREEN_HEIGHT // 2 - self.height // 2
 
+        # ============================================
+        # FIND DROP TARGET
+        # ============================================
         #check if released over another item
         drop_index = None
-        for i, item_rect_data in enumerate(self.item_rects):
+        for rect, index in self.item_rects:
             #skip item currently being dragged
-            if i == self.drag_start_index:
-                continue
-            
-            if len(item_rect_data) != 3:
+            if index == self.dragging_index:
                 continue
 
-            rect, entry, cache_key = item_rect_data
             adjusted_rect = rect.move(offset_x, offset_y - self.scroll_offset)
-            expanded_rect = adjusted_rect.inflate(0, 32)
+
+            expanded_rect = adjusted_rect.inflate(0, 16)
 
             if expanded_rect.collidepoint(pos):
-                drop_index = i
+                drop_index = index
                 break
         
-        #perform swap if dropped on different item
-        if drop_index is not None and drop_index != self.drag_start_index:
+        # ============================================
+        # PERFORM SWAP
+        # ============================================
+        if drop_index is not None and drop_index != self.dragging_index:
             #swap items in player inventory
             inventory = self.game.player.inventory
             
-            print(f"[DRAG SWAP] Swapping inventory[{self.drag_start_index}] ↔ inventory[{drop_index}]")
-            print(f"  BEFORE: [{self.drag_start_index}]={inventory[self.drag_start_index]}")
-            print(f"  BEFORE: [{drop_index}]={inventory[drop_index]}")
+            #get item names for logging
+            dragged_item = self._get_item_at_index(self.dragging_index)
+            target_item = self._get_item_at_index(drop_index)
+
+            print(f"[DRAG] Swapping '{dragged_item.name}' (index {self.dragging_index}) ↔ '{target_item.name}' (index {drop_index})")
             
-            inventory[self.drag_start_index], inventory[drop_index] = inventory[drop_index], inventory[self.drag_start_index]
-            
-            print(f"  AFTER: [{self.drag_start_index}]={inventory[self.drag_start_index]}")
-            print(f"  AFTER: [{drop_index}]={inventory[drop_index]}")
-            
+            inventory[self.dragging_index], inventory[drop_index] = \
+                inventory[drop_index], inventory[self.dragging_index]
+        
+            #mark inventory for rebuild    
             self.mark_dirty()
+            print(f"[DRAG] Swap complete!")
+        else:
+            #if no valid drop target, just cancel the drag
+            if self.dragging_index is not None:
+                item = self._get_item_at_index(self.dragging_index)
+                print(f"[DRAG] Cancelled drag of '{item.name}")
 
-        #clear drag state
-        self.dragging_item = None
-        self.drag_start_index = None
+        # ============================================
+        # CLEAR DRAG STATE
+        # ============================================
+        self.dragging_index = None
         self.drag_mouse_offset = (0, 0)
-
-        #set flag to prevent immediate re-drag
-        self.just_released_drag = True
 
         return True
 
@@ -479,16 +459,18 @@ class InventoryWindow:
 
         pygame.draw.rect(screen, (160, 160, 160), thumb_rect)
 
+    #draw just the scrollable item list
     def _draw_scrollable_items(self, screen, window_x, window_y):
-        #draw just the scrollable item list
-        y_start = 40 #start after the header
 
-        for i, item_rect_data in enumerate(self.item_rects):
-            if len(item_rect_data) != 3:
+        for rect, index in self.item_rects:
+            if index == self.dragging_index:
                 continue
 
-            rect, entry, cache_key = item_rect_data
-            item = self.cached_items[cache_key]
+            item = self._get_item_at_index(index)
+            entry = self._get_entry_at_index(index)
+
+            if not item or not entry:
+                continue
 
             #apply scroll offset
             draw_y = window_y + rect.y - self.scroll_offset
@@ -520,7 +502,7 @@ class InventoryWindow:
             #draw icon
             if item.icon_small:
                 screen.blit(item.icon_small, (draw_rect.x + 5, draw_rect.y + 2))
-                text_x = draw_rect.x +34
+                text_x = draw_rect.x + 34
             else:
                 text_x = draw_rect.x + 5
 
@@ -537,11 +519,6 @@ class InventoryWindow:
 
                 qty_surf = item.qty_surfaces[qty]
                 screen.blit(qty_surf, (text_x + item.name_surface.get_width() + 5, draw_rect.y + 5))
-
-            # DEBUG: Draw index number in top-right corner
-            #index_font = pygame.font.Font(None, 20)
-            #index_surf = index_font.render(f"[{i}]", True, (255, 255, 0))  # Yellow
-            #screen.blit(index_surf, (draw_rect.right - 30, draw_rect.y + 2))
     
 class VendorWindow:
     def __init__(self, game):
