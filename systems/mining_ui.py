@@ -79,6 +79,9 @@ class MiningWindow:
         nodes_y = self.y + 130
         self.draw_mining_nodes(surface, nodes_y)
 
+        #mining xp bar
+        self.draw_mining_xp_bar(surface)
+
         #active mining progress
         if self.game.mining_system.active_node:
             self.draw_mining_progress(surface)
@@ -231,7 +234,7 @@ class MiningWindow:
         mining_system = self.game.mining_system
 
         panel_width = 300
-        panel_height = 120
+        panel_height = 200
 
         if override_x is not None and override_y is not None:
             panel_x = override_x
@@ -247,8 +250,13 @@ class MiningWindow:
         #stats
         stats_y = panel_y + 10
         line_height = 22
+        player = self.game.player
 
         stats = [
+            f"Level: {player.mining_level}",
+            f"Gathering Power: {player.gathering_power}",
+            f"Mining Speed: +{int(player.mining_speed_bonus) * 100}%",
+            "",
             f"Total Attempts: {mining_system.total_attempts}",
             f"Successful: {mining_system.successful_mines}",
             f"Failed: {mining_system.failed_mines}",
@@ -256,8 +264,9 @@ class MiningWindow:
         ]
 
         for i, stat in enumerate(stats):
-            text = self.small_font.render(stat, True, (200, 200, 200))
-            surface.blit(text, (panel_x + 10, stats_y + i * line_height))
+            if stat:
+                text = self.small_font.render(stat, True, (200, 200, 200))
+                surface.blit(text, (panel_x + 10, stats_y + i * line_height))
 
     #handle mouse clicks on mining nodes
     def handle_click(self, pos):

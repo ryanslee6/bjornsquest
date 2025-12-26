@@ -1312,8 +1312,10 @@ class GameManager:
         window_y = SCREEN_HEIGHT // 2 - window_height // 2
 
         #draw window background
-        pygame.draw.rect(self.screen, (40, 40, 50), (window_x, window_y, window_width, window_height), border_radius = 8)
-        pygame.draw.rect(self.screen, (150, 150, 150), (window_x, window_y, window_width, window_height), 2, border_radius = 8)
+        window_surface = pygame.Surface((window_width, window_height), pygame.SRCALPHA)
+        pygame.draw.rect(window_surface, (40, 40, 50, 180), (0, 0, window_width, window_height), border_radius = 8)
+        pygame.draw.rect(window_surface, (150, 150, 150, 255), (0, 0, window_width, window_height), 2, border_radius = 8)
+        self.screen.blit(window_surface, (window_x, window_y))
 
         #draw title
         title = self.font.render("Choose Gathering Type:", True, WHITE)
@@ -1524,6 +1526,38 @@ class GameManager:
             self.screen.blit(name_text, (node_rect.centerx - name_text.get_width() // 2,
                                          node_rect.centery - name_text.get_height() // 2))
             
+        player = self.player
+
+        #get xp progress
+        progress, xp_into, xp_needed = player.get_mining_xp_progress()
+
+        #position the bar above where the progress bar appears
+        bar_width = 400
+        bar_height = 25
+        bar_x = SCREEN_WIDTH // 2 - bar_width // 2
+        bar_y = SCREEN_HEIGHT - 80
+
+        #background
+        pygame.draw.rect(self.screen, (40, 40, 40), (bar_x, bar_y, bar_width, bar_height))
+
+        #fill
+        fill_width = int(bar_width * progress)
+        if fill_width > 0:
+            pygame.draw.rect(self.screen, (120, 200, 120), (bar_x, bar_y, fill_width, bar_height))
+
+        #border
+        pygame.draw.rect(self.screen, (150, 150, 150), (bar_x, bar_y, bar_width, bar_height), 2)
+
+        #text show level and percentage
+        if xp_needed > 0:
+            percent = int(progress * 100)
+            text = self.font.render(f"Level {player.mining_level} - {percent}%", True, (255, 255, 255))
+        else:
+            text = self.font.render(f"Level {player.mining_level} - Max", True, (255, 215, 0))
+
+        text_rect = text.get_rect(center = (bar_x + bar_width // 2, bar_y + bar_height // 2))
+        self.screen.blit(text, text_rect)
+
         #statistics panel
         if hasattr(self, 'mining_window'):
             self.mining_window.draw_statistics_panel(
