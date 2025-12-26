@@ -16,6 +16,10 @@ class MiningSystem:
         self.mining_timer = 0
         self.mining_action_time = 0
 
+        #auto mining
+        self.auto_mining_enabled = False
+        self.last_mined_node = None
+
         #load node data
         self.node_data = self.load_node_data()
 
@@ -73,8 +77,9 @@ class MiningSystem:
     
     #initiate mining action on a node
     def start_mining(self, player, node_id):
-        #print(f"[MINING DEBUG] start_mining called with node_id: {node_id}")
-
+        if not self.can_mine_node(player, node_id):
+            return False
+        
         if node_id not in self.node_data:
             print(f"[MINING] Unknown node: {node_id}")
             return False
@@ -82,16 +87,12 @@ class MiningSystem:
         node_info = self.node_data[node_id]
         node_state = self.nodes[node_id]
 
-        #print(f"[MINING DEBUG] Node info: {node_info['name']}, state: {node_state}")
-
         #check level requirement
         if player.mining_level < node_info["required_level"]:
-            #print(f"[MINING] Requires level {node_info['required_level']}")
             return False
         
         #check of node is depleted
         if node_state["depleted"]:
-            #print(f"[MINING] {node_info['name']} is depleted")
             return False
         
         #calculate action time with mining speed
@@ -101,18 +102,15 @@ class MiningSystem:
             mining_speed
         )
 
-        #print(f"[MINING DEBUG] Setting active_node to {node_id}, action_time: {action_time}")
-
         #set active mining
         self.active_node = node_id
+        self.last_mined_node = node_id
         self.mining_timer = 0
         self.mining_action_time = action_time
 
-        #print(f"[MINING DEBUG] Active node is now: {self.active_node}")
-
         return True
     
-    #update minin progress and handle completions
+    #update mining progress and handle completions
     def update(self, dt, player):
         #update respawn timers
         for node_id, state in self.nodes.items():
@@ -125,18 +123,27 @@ class MiningSystem:
                     state["depleted"] = False
                     print(f"[MINING] {node_data['name']} respawned")
 
+                    if self.auto_mining_enabled and self.last_mined_node == node_id:
+                        print(f"[MINING] Auto-restarting mining")
+                        self.start_mining(player, node_id)
+
         #update active mining
         if self.active_node:
-            #print(f"[MINING UPDATE] Active node: {self.active_node}, timer: {self.mining_timer:.2f}/{self.mining_action_time:.2f}")
             self.mining_timer += dt
 
             #check if action completed
             if self.mining_timer >= self.mining_action_time:
                 self.complete_mining_action(player)
 
+                #auto mining re-initiate
+                if self.auto_mining_enabled and self.active_node and not self.nodes[self.active_node]["depleted"]:
+                    self.start_mining(player, self.active_node)
+                else:
+                    self.active_node = None
+                    self.mining_timer = 0
+
     #process a mining attempt
     def complete_mining_action(self, player):
-        print(f"[MINING] Completing action for {self.active_node}")
         if not self.active_node:
             return
         
@@ -175,14 +182,20 @@ class MiningSystem:
                 node_state["respawn_timer"] = node_info["respawn_time"]
                 print(f"[MINING] {node_info['name']} depleted, respawns in {node_info['respawn_time']}s")
 
+                #stop auto mining if node depleted
+                if self.auto_mining_enabled:
+                    self.active_node = None
+                    self.mining_timer = 0
+
             print(f"[MINING] Success! +{xp_gained} XP, gained {node_info['name']}")
         else:
             self.failed_mines += 1
             print(f"[MINING] Failed to mine {node_info['name']}")
 
-        #reset for next action
-        self.active_node = None
-        self.mining_timer = 0
+        #reset for next action if not auto mining or node depleted
+        if not self.auto_mining_enabled or node_state["depleted"]:
+            self.active_node = None
+            self.mining_timer = 0
 
     #get current mining action progress
     def get_progress_percentage(self):

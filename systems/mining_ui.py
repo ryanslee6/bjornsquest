@@ -227,25 +227,25 @@ class MiningWindow:
         surface.blit(progress_text, text_rect)
 
     #draw mining statistics
-    def draw_statistics_panel(self, surface):
+    def draw_statistics_panel(self, surface, override_x = None, override_y = None):
         mining_system = self.game.mining_system
 
-        #panel dimensions
         panel_width = 300
-        panel_height = 140
-        panel_x = self.x + (self.width - panel_width) // 2
-        panel_y = self.y + self.height - 50
+        panel_height = 120
+
+        if override_x is not None and override_y is not None:
+            panel_x = override_x
+            panel_y = override_y
+        else:
+            panel_x = SCREEN_WIDTH - 320
+            panel_y = 20
 
         #background
         pygame.draw.rect(surface, (30, 30, 40), (panel_x, panel_y, panel_width, panel_height))
         pygame.draw.rect(surface, (100, 100, 100), (panel_x, panel_y, panel_width, panel_height), 2)
 
-        #title
-        title = self.font.render("Statistics", True, (200, 150, 50))
-        surface.blit(title, (panel_x + 10, panel_y + 10))
-
         #stats
-        stats_y = panel_y + 40
+        stats_y = panel_y + 10
         line_height = 22
 
         stats = [

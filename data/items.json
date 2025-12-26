@@ -6,6 +6,14 @@
         "description": "Unlocks automatic combat mode.",
         "stackable": false
     },
+
+    "Auto Mining": {
+        "name": "Auto Mining",
+        "type": "account unlock",
+        "rarity": "epic",
+        "description": "Unlocks automatic mining mode.",
+        "stackable": false
+    },
     
     "gold_coins": {
         "name": "Gold Coins",

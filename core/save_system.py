@@ -96,6 +96,7 @@ class SaveSystem:
             #unlocks
             'unlocks': {
                 'auto_combat': player.auto_combat_unlocked,
+                'auto_mining': player.auto_mining_unlocked,
             },
 
             #bounty points
@@ -291,6 +292,7 @@ class SaveSystem:
         #unlocks
         unlocks = player_data.get('unlocks', {})
         player.auto_combat_unlocked = unlocks.get('auto_combat', False)
+        player.auto_mining_unlocked = unlocks.get('auto_mining', False)
 
         #clear and rebuild inventory
         player.inventory.clear()

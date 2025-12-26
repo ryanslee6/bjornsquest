@@ -41,6 +41,7 @@ class GameManager:
         self.state = "title"
         self.title_image = self.load_image("bq_titlescreen.png")
         self.home_image = self.load_image("bq_campsite.png")
+        self.gather_bg = self.load_image("gathering_bg.png")
         
         #load monster select backgrounds (with fallback system)
         self.monster_select_backgrounds = {}
@@ -120,6 +121,22 @@ class GameManager:
         #mining system
         self.mining_system = MiningSystem()
         self.mining_window = MiningWindow(self)
+        self.auto_mining_enabled = False
+        self.current_mining_node = None
+        self.mining_node_defeated = False
+        self.mining_respawn_time = 0
+        self.node_buttons = {}
+        self.mining_buttons = {}
+        self.mining_bg = self.load_image("mining_bg.png")
+        mining_sprite_path = os.path.join("assets", "images", "bjorn_mining.png")
+
+        if os.path.exists(mining_sprite_path):
+            raw_sprite = pygame.image.load(mining_sprite_path).convert_alpha()
+            self.mining_sprite = pygame.transform.scale(raw_sprite, (200, 180))
+            print("[INFO] Mining sprite loaded and scaled successfully")
+        else:
+            print(f"[WARNING] Missing mining sprite: {mining_sprite_path}")
+            self.mining_sprite = None
 
         #save system
         self.save_system = SaveSystem()
@@ -370,6 +387,8 @@ class GameManager:
             self._handle_home_events(event)
         elif self.state == "gathering_select":
             self._handle_gathering_select_events(event)
+        elif self.state == "mining_select":
+            self._handle_mining_select_events(event)
         elif self.state == "mining":
             self._handle_mining_state_events(event)
         elif self.state == "crafting_select":
@@ -653,14 +672,80 @@ class GameManager:
                         return True
         return False
     
+    def _handle_mining_select_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return False
+        
+        #check return button
+        if hasattr(self, "return_button") and self.return_button.collidepoint(event.pos):
+            self.state = "gathering_select"
+            return True
+        
+        #check node buttons
+        if not hasattr(self, 'node_buttons'):
+            return False
+
+        #check node button
+        for node_id, rect in self.node_buttons.items():
+            if rect.collidepoint(event.pos):
+                print(f"[MINING] Selected {node_id}")
+
+                #set current mining node
+                self.current_mining_node = node_id
+
+                #enter mining state
+                self.state = "mining"
+
+                #initialize mining
+                self.mining_system.active_node = None
+                self.mining_system.mining_timer = 0
+
+                return True
+        
+        return False
+
     #handle evens when in mining state
     def _handle_mining_state_events(self, event):
         if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
             return False
         
-        #check mining window clicks
-        if hasattr(self, "mining_window") and self.mining_window.visible:
-            return self.mining_window.handle_click(event.pos)
+        #check mining buttons
+        for label, rect in self.mining_buttons.items():
+            if rect.collidepoint(event.pos):
+                if label == "Mine":
+                    #start mining action
+                    if self.current_mining_node:
+                        success = self.mining_system.start_mining(self.player, self.current_mining_node)
+                        if success:
+                            print(f"[MINING] Started mining")
+                    return True
+                
+                elif label == "Auto":
+                    #toggle auto mining (check if unlocked)
+                    if not self.player.auto_mining_unlocked:
+                        print("[MINING] Auto Mining not unlocked yet!")
+                        return True
+                    
+                    self.mining_system.auto_mining_enabled = not self.mining_system.auto_mining_enabled
+                    print(f"[MINING] Auto Mining is now {'ON' if self.mining_system.auto_mining_enabled else 'OFF'}")
+
+                    #start mining if auto enabled and not currently mining
+                    if self.mining_system.auto_mining_enabled and not self.mining_system.active_node:
+                        self.mining_system.start_mining(self.player, self.current_mining_node)
+
+                    return True
+                
+                elif label == "Inventory":
+                    self.show_inventory = not self.show_inventory
+                    return True
+                
+                elif label == "Home":
+                    self.state = "gathering_select"
+                    #reset mining state
+                    self.mining_system.auto_mining_enabled = False
+                    self.mining_system.active_node = None
+                    self.current_mining_node = None
+                    return True
         
         return False
 
@@ -778,8 +863,8 @@ class GameManager:
         
         #check mining button
         if hasattr(self, 'mining_button') and self.mining_button.collidepoint(event.pos):
-            self.state = "mining"
-            print("[UI] Entering mining screen")
+            self.state = "mining_select"
+            print("[UI] Entering mining node selection")
             return True
         
         #check inventory button
@@ -1097,8 +1182,16 @@ class GameManager:
                     print("[AUTOSAVE] ✅ Game autosaved")
 
         #update mining system
-        if hasattr(self, 'mining_system') and self.state == "mining":
-            self.mining_system.update(dt, self.player)
+        if self.state == "mining":
+            if hasattr(self, 'mining_system'):
+                self.mining_system.update(dt, self.player)
+
+                #check for node depletion
+                if self.current_mining_node:
+                    node_state = self.mining_system.nodes[self.current_mining_node]
+                    if node_state["depleted"] and not hasattr(self, 'mining_node_defeated'):
+                        self.mining_node_defeated = True
+                        print(f"[MINING] Node depleted!")
 
     def draw(self):
         if self.state == "title":
@@ -1123,8 +1216,11 @@ class GameManager:
         elif self.state == "crafting_select":
             self.draw_crafting_select()
 
+        elif self.state == "mining_select":
+            self.draw_mining_select()
+
         elif self.state == "mining":
-            self.draw_mining_screen()
+            self.draw_mining_state()
 
         if self.character_window.visible:
             self.character_window.draw(self.screen)
@@ -1207,7 +1303,7 @@ class GameManager:
     #draw the gathering type selection screen
     def draw_gathering_select(self):
         #background (black placeholder for now)
-        self.screen.fill(BLACK)
+        self.screen.blit(self.gather_bg, (0, 0))
 
         #window dimensions
         window_width = 600
@@ -1303,6 +1399,161 @@ class GameManager:
         self.screen.blit(home_text, (self.gathering_home_button.x + self.gathering_home_button.width // 2 - home_text.get_width() // 2,
                                      self.gathering_home_button.y + self.gathering_home_button.height // 2 - home_text.get_height() // 2))
 
+    #mining node select
+    def draw_mining_select(self):
+        self.screen.blit(self.mining_bg, (0, 0))
+
+        title = self.font.render("Select Mining Node", True, WHITE)
+        self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
+
+        #get available nodes from mining_system
+        self.node_buttons = {}
+
+        #layout similar to monster buttons
+        btn_w = 180
+        btn_h = 55
+        spacing = 20
+        start_x = SCREEN_WIDTH // 2 - (btn_w * 2 + spacing) // 2
+        start_y = 150
+
+        available_nodes = [
+            node_id for node_id in self.mining_system.node_data.keys()
+            if self.mining_system.can_mine_node(self.player, node_id)
+        ]
+
+        for i, node_id in enumerate(available_nodes):
+            node_data = self.mining_system.node_data[node_id]
+            col = i % 2
+            row = i // 2
+
+            x = start_x + col * (btn_w + spacing)
+            y = start_y + row * (btn_h + spacing)
+
+            rect = pygame.Rect(x, y, btn_w, btn_h)
+            self.node_buttons[node_id] = rect
+
+            #node is available = green, depleted = red, locked = gray
+            node_state = self.mining_system.nodes[node_id]
+            if node_state["depleted"]:
+                color = (80, 40, 40)
+            else:
+                color = LIGHT_GRAY
+
+            pygame.draw.rect(self.screen, color, rect)
+            pygame.draw.rect(self.screen, WHITE, rect, 2)
+
+            #display node name
+            label = self.font.render(node_data["name"], True, WHITE)
+            self.screen.blit(label, (rect.x + (btn_w - label.get_width()) // 2,
+                                     rect.y + (btn_h - label.get_height()) // 2))
+            
+        #return to gathering select button
+        self.return_button = pygame.Rect(SCREEN_WIDTH // 2 - 100,
+                                         SCREEN_HEIGHT - 100,
+                                         200, 50)
+        pygame.draw.rect(self.screen, (100, 100, 100), self.return_button)
+        ret = self.font.render("Back", True, WHITE)
+        self.screen.blit(ret, (self.return_button.x + self.return_button.width // 2 - ret.get_width() // 2,
+                               self.return_button.y + self.return_button.height // 2 - ret.get_height() // 2))
+
+    def draw_mining_buttons(self):
+        button_labels = ["Mine", "Auto", "Inventory", "Home"]
+        self.mining_buttons = {}
+        button_width, button_height = 130, 40
+        spacing = 8
+        total_width = len(button_labels) * (button_width + spacing) - spacing
+        start_x = SCREEN_WIDTH // 2 - total_width // 2
+        y_pos = SCREEN_HEIGHT - 46
+
+        for i, label in enumerate(button_labels):
+            rect = pygame.Rect(start_x + i * (button_width + spacing), y_pos, button_width, button_height)
+            self.mining_buttons[label] = rect
+            pygame.draw.rect(self.screen, LIGHT_GRAY, rect)
+
+            #auto button shows on/off state
+            display_label = label
+            if label == "Auto":
+                display_label = "Auto: On" if self.mining_system.auto_mining_enabled else "Auto: Off"
+
+            text = self.font.render(display_label, True, WHITE)
+            self.screen.blit(text, (rect.x + rect.width // 2 - text.get_width() // 2,
+                                    rect.y + rect.height // 2 - text.get_height() // 2))
+
+    def draw_mining_state(self):
+        self.screen.blit(self.mining_bg, (0, 0))
+
+        #draw player sprite
+        player_x = 38
+        player_y = 10
+        sprite_x = player_x + 85
+        sprite_y = 300
+
+        sprite_to_draw = None
+
+        if hasattr(self, 'mining_sprite') and self.mining_sprite:
+            sprite_to_draw = self.mining_sprite
+        elif self.player.sprite:
+            #fallback
+            sprite_to_draw = self.player.sprite
+
+        if sprite_to_draw:
+            self.screen.blit(sprite_to_draw, (sprite_x, sprite_y))
+
+        #draw node placeholder
+        node_rect = pygame.Rect(SCREEN_WIDTH - 285, 305, 200, 180)
+
+        if self.current_mining_node:
+            node_data = self.mining_system.node_data[self.current_mining_node]
+            node_state = self.mining_system.nodes[self.current_mining_node]
+
+            is_depleted = node_state["depleted"]
+
+            if is_depleted:
+                bg_color = (60, 40, 40)
+                border_color = (120, 60, 60)
+            else:
+                bg_color = (60, 60, 60)
+                border_color = (120, 120, 120)
+
+            #draw node placeholder
+            pygame.draw.rect(self.screen, bg_color, node_rect)
+            pygame.draw.rect(self.screen, border_color, node_rect, 2)
+
+            #node name
+            name_text = self.font.render(node_data["name"], True, WHITE)
+            self.screen.blit(name_text, (node_rect.centerx - name_text.get_width() // 2,
+                                         node_rect.centery - name_text.get_height() // 2))
+            
+        #statistics panel
+        if hasattr(self, 'mining_window'):
+            self.mining_window.draw_statistics_panel(
+                self.screen,
+                override_x = SCREEN_WIDTH - 320,
+                override_y = 20
+            )
+
+        #progress bar (if actively mining)
+        if self.mining_system.active_node:
+            progress = self.mining_system.get_progress_percentage()
+            bar_width = 400
+            bar_height = 30
+            bar_x = SCREEN_WIDTH // 2 - bar_width // 2
+            bar_y = SCREEN_HEIGHT - 120
+
+            pygame.draw.rect(self.screen, (40, 40, 40), (bar_x, bar_y, bar_width, bar_height))
+            pygame.draw.rect(self.screen, (100, 150, 200), (bar_x, bar_y, int(bar_width * progress), bar_height))
+            pygame.draw.rect(self.screen, (150, 150, 150), (bar_x, bar_y, bar_width, bar_height), 2)
+
+            prog_text = self.font.render("Mining...", True, WHITE)
+            self.screen.blit(prog_text, (bar_x + bar_width // 2 - prog_text.get_width() // 2,
+                                         bar_y + bar_height // 2 - prog_text.get_height() // 2))
+
+        #draw mining buttons
+        self.draw_mining_buttons()
+
+        if self.show_inventory:
+            self.inventory_window.draw(self.screen)
+            
     #draw the mining screen
     def draw_mining_screen(self):
         #draw background

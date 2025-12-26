@@ -557,6 +557,7 @@ class VendorWindow:
             {"id": "mana_potion_small", "price": 1},
             {"id": "anti_poison_potion", "price": 1},
             {"id": "Auto Attack", "price": 1},
+            {"id": "Auto Mining", "price": 1},
             {"id": "weapon_attack_scroll_100", "price": 1},
             {"id": "weapon_strength_scroll_100", "price": 1},
             {"id": "weapon_constitution_scroll_100", "price": 1},
@@ -1065,6 +1066,14 @@ class VendorWindow:
                         print("[VENDOR] Auto Combat unlocked!")
                     else:
                         print("[VENDOR] Auto Combat already unlocked.")
+                    return True
+                
+                if item_id.lower() == "auto mining":
+                    if not self.game.player.auto_mining_unlocked:
+                        self.game.player.auto_mining_unlocked = True
+                        print("[VENDOR] Auto Mining unlocked!")
+                    else:
+                        print("[VENDOR] Auto Mining already unlocked.")
                     return True
                 
                 self.game.player.add_item(item_id, 1)

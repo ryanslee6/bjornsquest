@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "1.0",
-    "save_date": "2025-12-25T09:21:03.048325",
+    "save_date": "2025-12-25T14:20:10.632824",
     "character_name": "Bjorn",
     "level": 8,
     "playertime": 0
@@ -9,8 +9,8 @@
   "player": {
     "name": "Bjorn",
     "level": 8,
-    "exp": 2216,
-    "gold": 4729,
+    "exp": 2267,
+    "gold": 4823,
     "stat_points": 0,
     "stats": {
       "base_strength": 24,
@@ -20,10 +20,11 @@
       "hp": 545,
       "mp": 120
     },
-    "mining_level": 6,
-    "mining_xp": 527,
+    "mining_level": 8,
+    "mining_xp": 850,
     "unlocks": {
-      "auto_combat": true
+      "auto_combat": true,
+      "auto_mining": true
     },
     "bounty_points": 5,
     "inventory": [
@@ -31,6 +32,16 @@
         "type": "stackable",
         "id": "health_potion_small",
         "qty": 21
+      },
+      {
+        "type": "stackable",
+        "id": "mana_potion_small",
+        "qty": 2
+      },
+      {
+        "type": "stackable",
+        "id": "anti_poison_potion",
+        "qty": 4
       },
       {
         "type": "unique",
@@ -48,17 +59,7 @@
       {
         "type": "stackable",
         "id": "copper_ore",
-        "qty": 24
-      },
-      {
-        "type": "stackable",
-        "id": "mana_potion_small",
-        "qty": 2
-      },
-      {
-        "type": "stackable",
-        "id": "anti_poison_potion",
-        "qty": 4
+        "qty": 43
       },
       {
         "type": "stackable",
@@ -119,7 +120,7 @@
     "active_effects": []
   },
   "game_state": {
-    "current_monster": null,
+    "current_monster": "Goblin",
     "monster_page": 0,
     "playtime": 0,
     "bounties": [
@@ -127,39 +128,13 @@
         "id": 0,
         "tier": "EASY",
         "monster_name": "Goblin",
-        "target_count": 6,
-        "current_count": 0,
+        "target_count": 9,
+        "current_count": 2,
         "is_completed": false,
         "reward": {
-          "experience": 60,
-          "gold": 30,
+          "experience": 90,
+          "gold": 45,
           "bounty_points": 1
-        }
-      },
-      {
-        "id": 1,
-        "tier": "MEDIUM",
-        "monster_name": "Skeleton",
-        "target_count": 16,
-        "current_count": 0,
-        "is_completed": false,
-        "reward": {
-          "experience": 400,
-          "gold": 240,
-          "bounty_points": 2
-        }
-      },
-      {
-        "id": 2,
-        "tier": "HARD",
-        "monster_name": "Wolf",
-        "target_count": 36,
-        "current_count": 0,
-        "is_completed": false,
-        "reward": {
-          "experience": 1800,
-          "gold": 1260,
-          "bounty_points": 3
         }
       }
     ]

@@ -26,6 +26,7 @@ class Player:
         self.mining_xp = 0
         self.gathering_power = 0
         self.mining_speed_bonus = 0.0
+        self.auto_mining_unlocked = False
 
         self.current_shield = 0
         self.max_shield = 0
