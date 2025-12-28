@@ -24,6 +24,8 @@ from core.window_manager import WindowManager, GameWindow
 from systems.mining_system import MiningSystem
 from systems.mining_ui import MiningWindow
 from core.font_manager import FontManager
+from systems.woodcutting_system import WoodcuttingSystem
+from systems.woodcutting_ui import WoocuttingWindow
 
 
 class GameManager:
@@ -130,6 +132,18 @@ class GameManager:
         self.mining_bg = self.load_image("mining_bg.png")
         mining_sprite_path = os.path.join("assets", "images", "bjorn_mining.png")
 
+        #woodcutting system
+        self.woodcutting_system = WoodcuttingSystem()
+        self.woodcutting_window = WoocuttingWindow(self)
+        self.auto_woodcutting_enabled = False
+        self.current_tree = None
+        self.tree_defeated = False
+        self.tree_respawn_time = 0
+        self.tree_buttons = {}
+        self.woodcutting_buttons = {}
+        self.woodcutting_bg = self.load_image("cutting_bg.png")
+        woodcutting_sprite_path = os.path.join("assets", "images", "bjorn_cutting.png")
+
         if os.path.exists(mining_sprite_path):
             raw_sprite = pygame.image.load(mining_sprite_path).convert_alpha()
             self.mining_sprite = pygame.transform.scale(raw_sprite, (200, 180))
@@ -137,6 +151,14 @@ class GameManager:
         else:
             print(f"[WARNING] Missing mining sprite: {mining_sprite_path}")
             self.mining_sprite = None
+
+        if os.path.exists(woodcutting_sprite_path):
+            raw_sprite = pygame.image.load(woodcutting_sprite_path).convert_alpha()
+            self.woodcutting_sprite = pygame.transform.scale(raw_sprite, (200, 180))
+            print("[INFO] Woodcutting sprite loaded and scaled successfully")
+        else:
+            print(f"[WARNING] Missing woodcutting sprite: {woodcutting_sprite_path}")
+            self.woodcutting_sprite = None
 
         #save system
         self.save_system = SaveSystem()
@@ -391,6 +413,10 @@ class GameManager:
             self._handle_mining_select_events(event)
         elif self.state == "mining":
             self._handle_mining_state_events(event)
+        elif self.state == "cutting_select":
+            self._handle_cutting_select_events(event)
+        elif self.state == "cutting":
+            self._handle_cutting_state_events(event)
         elif self.state == "crafting_select":
             self._handle_crafting_select_events(event)
         elif self.state == "creature_select":
@@ -749,6 +775,25 @@ class GameManager:
         
         return False
 
+    def _handle_cutting_select_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return False
+        
+        #check return button
+        if hasattr(self, "return_button") and self.return_button.collidepoint(event.pos):
+            self.state = "gathering_select"
+            return True
+
+        if hasattr(self, 'tree_buttons'):
+            for tree_id, rect in self.tree_buttons.items():
+                if rect.collidepoint(event.pos):
+                    print(f"[WOODCUTTING] Selected {tree_id}")
+                    self.current_tree = tree_id
+                    self.state = "cutting"
+                    return
+        
+        return False
+
     def _handle_title_events(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.start_button.collidepoint(event.pos):
@@ -761,6 +806,46 @@ class GameManager:
                 #open save selection window
                 self.save_select_window.open()
                 return True
+        return False
+    
+    def _handle_cutting_state_events(self, event):
+        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+            return False
+        
+        for label, rect in self.woodcutting_buttons.items():
+            if rect.collidepoint(event.pos):
+                
+                if label == "Chop":
+                    if self.current_tree:
+                        success = self.woodcutting_system.start_chopping(self.player, self.current_tree)
+                        if success:
+                            print(f"[WOODCUTTING] Started chopping")
+                    return True
+                
+                elif label == "Auto":
+                    if not self.player.auto_woodcutting_unlocked:
+                        print("[WOODCUTTING] Auto Woodcutting not unlocked yet!")
+                        return True
+                    
+                    self.woodcutting_system.auto_woodcutting_enabled = not self.woodcutting_system.auto_woodcutting_enabled
+                    print(f"[WOODCUTTING] Auto Woodcutting is now {'ON' if self.woodcutting_system.auto_woodcutting_enabled else 'OFF'}")
+
+                    if self.woodcutting_system.auto_woodcutting_enabled and not self.woodcutting_system.active_tree:
+                        self.woodcutting_system.start_chopping(self.player, self.current_tree)
+
+                    return True
+                
+                elif label == "Inventory":
+                    self.show_inventory = not self.show_inventory
+                    return True
+                
+                elif label == "Home":
+                    self.state = "gathering_select"
+                    self.woodcutting_system.auto_woodcutting_enabled = False
+                    self.woodcutting_system.active_tree = None
+                    self.current_tree = None
+                    return True
+                
         return False
     
     def _handle_home_events(self, event):
@@ -865,6 +950,12 @@ class GameManager:
         if hasattr(self, 'mining_button') and self.mining_button.collidepoint(event.pos):
             self.state = "mining_select"
             print("[UI] Entering mining node selection")
+            return True
+        
+        #check woodcutting button
+        if hasattr(self, 'woodcutting_button') and self.woodcutting_button.collidepoint(event.pos):
+            self.state = "cutting_select"
+            print("[UI] Entering woodcutting tree selection")
             return True
         
         #check inventory button
@@ -1193,6 +1284,10 @@ class GameManager:
                         self.mining_node_defeated = True
                         print(f"[MINING] Node depleted!")
 
+        if self.state == "cutting":
+            if hasattr(self, 'woodcutting_system'):
+                self.woodcutting_system.update(dt, self.player)
+
     def draw(self):
         if self.state == "title":
             self.draw_title()
@@ -1221,6 +1316,12 @@ class GameManager:
 
         elif self.state == "mining":
             self.draw_mining_state()
+
+        elif self.state == "cutting_select":
+            self.draw_cutting_select()
+
+        elif self.state == "cutting":
+            self.draw_cutting_state()
 
         if self.character_window.visible:
             self.character_window.draw(self.screen)
@@ -1342,21 +1443,18 @@ class GameManager:
         #coming soon sections (placeholder for other gathering)
         coming_soon_y = button_y + 120
 
-        #woodcutting (coming soon)
-        woodcutting_rect = pygame.Rect(button_x, coming_soon_y, button_width, button_height)
-        pygame.draw.rect(self.screen, (60, 60, 60), woodcutting_rect)
-        pygame.draw.rect(self.screen, (100, 100, 100), woodcutting_rect, 2)
+        #woodcutting
+        woodcutting_y = coming_soon_y
+        woodcutting_rect = pygame.Rect(button_x, woodcutting_y, button_width, button_height)
 
-        wc_text = self.font.render("Woodcutting", True, (120, 120, 120))
+        self.woodcutting_button = woodcutting_rect
+        pygame.draw.rect(self.screen, (80, 120, 80), woodcutting_rect)
+        pygame.draw.rect(self.screen, (120, 120, 120), woodcutting_rect, 2)
+
+        wc_text = self.font.render("Woodcutting", True, WHITE)
         self.screen.blit(wc_text, (
             woodcutting_rect.x + woodcutting_rect.width // 2 - wc_text.get_width() // 2,
             woodcutting_rect.y + woodcutting_rect.height // 2 - wc_text.get_height() // 2 - 10
-        ))
-
-        soon_text = self.font_small.render("Coming Soon", True, (150, 150, 150))
-        self.screen.blit(soon_text, (
-            woodcutting_rect.x + woodcutting_rect.width // 2 - soon_text.get_width() // 2,
-            woodcutting_rect.y + woodcutting_rect.height // 2 + 5
         ))
 
         #Fishing (coming soon)
@@ -1602,6 +1700,190 @@ class GameManager:
         #draw inventory if open
         if self.show_inventory:
             self.inventory_window.draw(self.screen)
+
+    def draw_cutting_select(self):
+        self.screen.blit(self.woodcutting_bg, (0, 0))
+
+        self.tree_buttons = {}
+
+        title = self.font.render("Select Tree", True, WHITE)
+        self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 50))
+
+        self.tree_buttons = {}
+        btn_w = 180
+        btn_h = 55
+        spacing = 20
+        start_x = SCREEN_WIDTH // 2 - (btn_w * 2 + spacing) // 2
+        start_y = 150
+
+        all_trees = list(self.woodcutting_system.tree_data.keys())
+
+        for i, tree_id in enumerate(all_trees):
+            tree_data = self.woodcutting_system.tree_data[tree_id]
+            col = i % 2
+            row = i // 2
+
+            x = start_x + col * (btn_w + spacing)
+            y = start_y + row * (btn_h + spacing)
+
+            rect = pygame.Rect(x, y, btn_w, btn_h)
+
+
+            tree_state = self.woodcutting_system.trees[tree_id]
+            is_depleted = tree_state["depleted"]
+            meets_level = self.player.woodcutting_level >= tree_data["required_level"]
+
+            if not meets_level:
+                color = (100, 40, 40)
+            elif is_depleted:
+                color = (80, 80, 80)
+            else:
+                color = LIGHT_GRAY
+                self.tree_buttons[tree_id] = rect
+
+            pygame.draw.rect(self.screen, color, rect)
+            pygame.draw.rect(self.screen, WHITE, rect, 2)
+
+            label = self.font.render(tree_data["name"], True, WHITE)
+            self.screen.blit(label, (rect.x + (btn_w - label.get_width()) // 2,
+                                     rect.y + (btn_h - label.get_height()) // 2))
+            
+            if not meets_level:
+                req_text = self.font_small.render(f"Level {tree_data['required_level']} Required", True, (255, 150, 150))
+                self.screen.blit(req_text, (rect.x + (btn_w - req_text.get_width()) // 2,
+                                            rect.y + btn_h - 20))
+                
+            elif is_depleted:
+                time_left = int(tree_state["respawn_timer"])
+                timer_text = self.font_small.render(f"Respawn: {time_left}s", True, (200, 200, 200))
+                self.screen.blit(timer_text, (rect.x + (btn_w - timer_text.get_width()) // 2,
+                                              rect.y + btn_h - 20))
+            
+        self.return_button = pygame.Rect(SCREEN_WIDTH // 2 - 100,
+                                         SCREEN_HEIGHT - 100,
+                                         200, 50)
+        pygame.draw.rect(self.screen, (100, 100, 100), self.return_button)
+        ret = self.font.render("Back", True, WHITE)
+        self.screen.blit(ret, (self.return_button.x + self.return_button.width // 2 - ret.get_width() // 2,
+                               self.return_button.y + self.return_button.height // 2 - ret.get_height() // 2))
+        
+    def draw_cutting_state(self):
+        self.screen.blit(self.woodcutting_bg, (0, 0))
+
+        #draw player sprite
+        player_x = 130
+        player_y = 10
+        sprite_x = player_x + 85
+        sprite_y = 300
+
+        sprite_to_draw = None
+
+        if hasattr(self, 'woodcutting_sprite') and self.woodcutting_sprite:
+            sprite_to_draw = self.woodcutting_sprite
+        elif self.player.sprite:
+            #fallback
+            sprite_to_draw = self.player.sprite
+
+        if sprite_to_draw:
+            self.screen.blit(sprite_to_draw, (sprite_x, sprite_y))
+
+        #draw tree placeholder
+        tree_rect = pygame.Rect(SCREEN_WIDTH - 285, 305, 200, 180)
+
+        if self.current_tree:
+            tree_data = self.woodcutting_system.tree_data[self.current_tree]
+            tree_state = self.woodcutting_system.trees[self.current_tree]
+            is_depleted = tree_state["depleted"]
+
+            if is_depleted:
+                bg_color = (60, 40, 40)
+                border_color = (120, 60, 60)
+            else:
+                bg_color = (60, 60, 60)
+                border_color = (120, 120, 120)
+
+            pygame.draw.rect(self.screen, bg_color, tree_rect)
+            pygame.draw.rect(self.screen, border_color, tree_rect, 2)
+
+            name_text = self.font.render(tree_data["name"], True, WHITE)
+            self.screen.blit(name_text, (tree_rect.centerx - name_text.get_width() // 2,
+                                         tree_rect.centery - name_text.get_height() // 2))
+            
+        
+        
+        #xp progress bar
+        progress, xp_into, xp_needed = self.player.get_woodcutting_xp_progress()
+        bar_width = 400
+        bar_height = 25
+        bar_x = SCREEN_WIDTH // 2 - bar_width // 2
+        bar_y = SCREEN_HEIGHT - 80
+
+        pygame.draw.rect(self.screen, (40, 40, 40), (bar_x, bar_y, bar_width, bar_height))
+        
+        fill_width = int(bar_width * progress)
+        if fill_width > 0:
+            pygame.draw.rect(self.screen, (120, 200, 120), (bar_x, bar_y, fill_width, bar_height))
+        pygame.draw.rect(self.screen, (150, 150, 150), (bar_x, bar_y, bar_width, bar_height), 2)
+
+        if xp_needed > 0:
+            percent = int(progress * 100)
+            text = self.font.render(f"Level {self.player.woodcutting_level} - {percent}%", True, (255, 255, 255))
+        else:
+            text = self.font.render(f"Level {self.player.woodcutting_level} - Max", True, (255, 215, 0))
+
+        text_rect = text.get_rect(center = (bar_x + bar_width // 2, bar_y + bar_height // 2))
+        self.screen.blit(text, text_rect)
+
+        if hasattr(self, 'woodcutting_window'):
+            self.woodcutting_window.draw_statistics_panel(
+                self.screen,
+                override_x = SCREEN_WIDTH - 320,
+                override_y = 20
+            )
+
+        #progress bar (if actively chopping)
+        if self.woodcutting_system.active_tree:
+            progress = self.woodcutting_system.get_progress_percentage()
+            bar_width = 400
+            bar_height = 30
+            bar_x = SCREEN_WIDTH // 2 - bar_width // 2
+            bar_y = SCREEN_HEIGHT - 120
+
+            pygame.draw.rect(self.screen, (40, 40, 40), (bar_x, bar_y, bar_width, bar_height))
+            pygame.draw.rect(self.screen, (100, 150, 200), (bar_x, bar_y, int(bar_width * progress), bar_height))
+            pygame.draw.rect(self.screen, (150, 150, 150), (bar_x, bar_y, bar_width, bar_height), 2)
+
+            prog_text = self.font.render("Chopping...", True, WHITE)
+            self.screen.blit(prog_text, (bar_x + bar_width // 2 - prog_text.get_width() // 2,
+                                         bar_y + bar_height // 2 - prog_text.get_height() // 2))
+
+        #draw buttons
+        self.draw_woodcutting_buttons()
+
+        if self.show_inventory:
+            self.inventory_window.draw(self.screen)
+
+    def draw_woodcutting_buttons(self):
+        button_labels = ["Chop", "Auto", "Inventory", "Home"]
+        self.woodcutting_buttons = {}
+        button_width, button_height = 130, 40
+        spacing = 8
+        total_width = len(button_labels) * (button_width + spacing) - spacing
+        start_x = SCREEN_WIDTH // 2 - total_width // 2
+        y_pos = SCREEN_HEIGHT - 46
+
+        for i, label in enumerate(button_labels):
+            rect = pygame.Rect(start_x + i * (button_width + spacing), y_pos, button_width, button_height)
+            self.woodcutting_buttons[label] = rect
+            pygame.draw.rect(self.screen, LIGHT_GRAY, rect)
+
+            display_label = label
+            if label == "Auto":
+                display_label = "Auto: On" if self.woodcutting_system.auto_woodcutting_enabled else "Auto: Off"
+
+            text = self.font.render(display_label, True, WHITE)
+            self.screen.blit(text, (rect.x + rect.width // 2 - text.get_width() // 2,
+                                    rect.y + rect.height // 2 - text.get_height() // 2))
 
     #draw crafting type selection screen
     def draw_crafting_select(self):

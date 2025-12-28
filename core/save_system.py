@@ -92,6 +92,8 @@ class SaveSystem:
             #gathering profs
             'mining_level': player.mining_level,
             'mining_xp': player.mining_xp,
+            'woodcutting_level': player.woodcutting_level,
+            'woodcutting_xp': player.woodcutting_xp,
 
             #unlocks
             'unlocks': {
@@ -281,6 +283,8 @@ class SaveSystem:
         #gathering profs
         player.mining_xp = player_data.get('mining_xp', 0)
         player.mining_level = player_data.get('mining_level', 1)
+        player.woodcutting_xp = player_data.get('woodcutting_xp', 0)
+        player.woodcutting_level = player_data.get('woodcutting_level', 1)
 
         #recalculate derived stats
         player.stats.recalc_stats()
@@ -293,6 +297,7 @@ class SaveSystem:
         unlocks = player_data.get('unlocks', {})
         player.auto_combat_unlocked = unlocks.get('auto_combat', False)
         player.auto_mining_unlocked = unlocks.get('auto_mining', False)
+        player.auto_woodcutting_unlocked = unlocks.get('auto_woodcutting', False)
 
         #clear and rebuild inventory
         player.inventory.clear()

@@ -34,5 +34,43 @@
         "rarity": "uncommon",
         "required_level": 5,
         "stackable": false
+    },
+
+
+    "bronze_hatchet": {
+        "name": "Bronze Hatchet",
+        "type": "Tool",
+        "tool_type": "Hatchet",
+        "hands": 1,
+        "gathering_power": 5,
+        "woodcutting_speed_bonus": 0,
+        "description": "A basic woodcutting tool",
+        "rarity": "common",
+        "required_level": 1,
+        "stackable": false
+    },
+    "iron_hatchet": {
+        "name": "Iron Hatchet",
+        "type": "Tool",
+        "tool_type": "Hatchet",
+        "hands": 1,
+        "gathering_power": 15,
+        "woodcutting_speed_bonus": 0.1,
+        "description": "A stury iron hatchet",
+        "rarity": "common",
+        "required_level": 5,
+        "stackable": false
+    },
+    "steel_hatchet": {
+        "name": "Steel Hatchet",
+        "type": "Tool",
+        "tool_type": "Hatchet",
+        "hands": 1,
+        "gathering_power": 25,
+        "woodcutting_speed_bonus": 0.25,
+        "description": "A reliable steel hatchet",
+        "rarity": "uncommon",
+        "required_level": 10,
+        "stackable": false
     }
 }

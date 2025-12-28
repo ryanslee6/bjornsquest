@@ -14,6 +14,14 @@
         "description": "Unlocks automatic mining mode.",
         "stackable": false
     },
+
+    "Auto Woodcutting": {
+        "name": "Auto Woodcutting",
+        "type": "account unlock",
+        "rarity": "epic",
+        "description": "Unlocks automatic Woodcutting mode.",
+        "stackable": false
+    },
     
     "gold_coins": {
         "name": "Gold Coins",

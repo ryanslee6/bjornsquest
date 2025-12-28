@@ -230,6 +230,10 @@ class MiningSystem:
         node_info = self.node_data[node_id]
         node_state = self.nodes[node_id]
 
+        tool = player.equipment.get("weapon")
+        if not tool or not hasattr(tool, "tool_type") or tool.tool_type != "Pickaxe":
+            return False
+
         #level check
         if player.mining_level < node_info["required_level"]:
             return False

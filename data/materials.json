@@ -71,5 +71,78 @@
         "description": "The rarest cyan-blue ore",
         "rarity": "legendary",
         "stackable": true
+    },
+    
+
+    "normal_logs": {
+        "name": "Normal Logs",
+        "type": "material",
+        "subtype": "logs",
+        "description": "Common logs from normal trees",
+        "rarity": "common",
+        "stackable": true
+    },
+
+    "oak_logs": {
+        "name": "Oak Logs",
+        "type": "meterial",
+        "subtype": "logs",
+        "description": "Sturdy oak logs",
+        "rarity": "common",
+        "stackable": true
+    },
+
+    "willow_logs": {
+        "name": "Willow Logs",
+        "type": "material",
+        "subtype": "logs",
+        "description": "Flexible willow logs",
+        "rarity": "common",
+        "stackable": true
+    },
+
+    "maple_logs": {
+        "name": "Maple Logs",
+        "type": "material",
+        "subtype": "logs",
+        "description": "Sweet-smelling maple logs",
+        "rarity": "common",
+        "stackable": true
+    },
+
+    "yew_logs": {
+        "name": "Yew Logs",
+        "type": "material",
+        "subtype": "logs",
+        "description": "Dense yew logs",
+        "rarity": "common",
+        "stackable": true
+    },
+
+    "magic_logs": {
+        "name": "Magic Logs",
+        "type": "material",
+        "subtype": "logs",
+        "description": "Mystical logs with magical properties",
+        "rarity": "uncommon",
+        "stackable": true
+    },
+
+    "elder_logs": {
+        "name": "Elder Logs",
+        "type": "material",
+        "subtype": "logs",
+        "description": "Ancient logs from elder trees",
+        "rarity": "rare",
+        "stackable": true
+    },
+
+    "redwood_logs": {
+        "name": "Redwood Logs",
+        "type": "material",
+        "subtype": "logs",
+        "description": "Massive logs from redwood trees",
+        "rarity": "epic",
+        "stackable": true
     }
 }

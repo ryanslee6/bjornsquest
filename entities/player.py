@@ -28,6 +28,12 @@ class Player:
         self.mining_speed_bonus = 0.0
         self.auto_mining_unlocked = False
 
+        #woodcutting stats
+        self.woodcutting_level = 1
+        self.woodcutting_xp = 0
+        self.woodcutting_speed_bonus = 0.0
+        self.auto_woodcutting_unlocked = False
+
         self.current_shield = 0
         self.max_shield = 0
 
@@ -150,7 +156,7 @@ class Player:
         #add gear bonuses
         self.apply_gear_stats()
 
-        self.update_mining_stats_from_tool()
+        self.update_gathering_stats_from_tool()
 
     def equip_item(self, item):
         #attmpts to equip an item from inventory
@@ -650,21 +656,64 @@ class Player:
         return progress, xp_into_level, xp_needed
     
     #update gathering power and mining speed from equipped pickaxe
-    def update_mining_stats_from_tool(self):
+    def update_gathering_stats_from_tool(self):
 
         #reset to base
         self.gathering_power = 0
         self.mining_speed_bonus = 0.0
+        self.woodcutting_speed_bonus = 0.0
 
-        #check weapon slot for pickaxe
+        #check weapon slot for tool
         tool = self.equipment.get("weapon")
 
-        if tool and hasattr(tool, "tool_type") and tool.tool_type == "Pickaxe":
-            #add tool bonuses
+        if tool and hasattr(tool, "tool_type"):
             gathering = getattr(tool, "gathering_power", 0)
-            speed = getattr(tool, "mining_speed_bonus", 0.0)           
-           
             self.gathering_power += gathering
-            self.mining_speed_bonus += speed
+
+            if tool.tool_type == "Pickaxe":
+                speed = getattr(tool, "mining_speed_bonus", 0.0)
+                self.mining_speed_bonus += speed
+            elif tool.tool_type == "Hatchet":
+                speed = getattr(tool, "woodcutting_speed_bonus", 0.0)
+                self.woodcutting_speed_bonus += speed
+
+    #gain woodcutting xp and handle level ups
+    def gain_woodcutting_xp(self, amount):
+        from systems.woodcutting_system import WOODCUTTING_XP_TABLE
+
+        self.woodcutting_xp += amount
+        leveled_up = False
+
+        #check for level ups
+        while self.woodcutting_level < 99 and self.woodcutting_xp >= WOODCUTTING_XP_TABLE[self.woodcutting_level]:
+            self.woodcutting_level += 1
+            leveled_up = True
+            print(f"🪓 Woodcutting level up! Reached level {self.woodcutting_level}")
+
+        if not leveled_up:
+            print(f"🪓 Gained {amount} woodcutting XP")
+
+    #get progress towards next woodcutting level
+    def get_woodcutting_xp_progress(self):
+        from systems.woodcutting_system import WOODCUTTING_XP_TABLE
+
+        if self.woodcutting_level >= 99:
+            return 1.0, 0, 0
+        
+        current_level_xp = WOODCUTTING_XP_TABLE[self.woodcutting_level - 1] if self.woodcutting_level > 1 else 0
+        next_level_xp = WOODCUTTING_XP_TABLE[self.woodcutting_level]
+
+        xp_into_level = self.woodcutting_xp - current_level_xp
+        xp_needed = next_level_xp - current_level_xp
+
+        progress = xp_into_level / xp_needed if xp_needed > 0 else 1.0
+
+        return progress, xp_into_level, xp_needed
+    
+
+
+
+
+
 
                 

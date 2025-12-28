@@ -558,6 +558,7 @@ class VendorWindow:
             {"id": "anti_poison_potion", "price": 1},
             {"id": "Auto Attack", "price": 1},
             {"id": "Auto Mining", "price": 1},
+            {"id": "Auto Woodcutting", "price": 1},
             {"id": "weapon_attack_scroll_100", "price": 1},
             {"id": "weapon_strength_scroll_100", "price": 1},
             {"id": "weapon_constitution_scroll_100", "price": 1},
@@ -567,6 +568,10 @@ class VendorWindow:
             {"id": "armor_hp_scroll_100", "price": 1},
             {"id": "bronze_pickaxe", "price": 1},
             {"id": "iron_pickaxe", "price": 1},
+            {"id": "steel_pickaxe", "price": 1},
+            {"id": "bronze_hatchet", "price": 1},
+            {"id": "iron_hatchet", "price": 1},
+            {"id": "steel_hatchet", "price": 1},
 
             # ----- Training Equipment -----
             {"id": "basic_training_helmet", "price": 1},
@@ -1074,6 +1079,14 @@ class VendorWindow:
                         print("[VENDOR] Auto Mining unlocked!")
                     else:
                         print("[VENDOR] Auto Mining already unlocked.")
+                    return True
+                
+                if item_id.lower() == "auto woodcutting":
+                    if not self.game.player.auto_woodcutting_unlocked:
+                        self.game.player.auto_woodcutting_unlocked = True
+                        print("[VENDOR] Auto Woodcutting Unlocked!")
+                    else:
+                        print("[VENDOR] Auto Woodcutting already unlocked.")
                     return True
                 
                 self.game.player.add_item(item_id, 1)

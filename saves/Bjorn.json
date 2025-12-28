@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "1.0",
-    "save_date": "2025-12-25T22:25:27.367123",
+    "save_date": "2025-12-27T16:01:16.731399",
     "character_name": "Bjorn",
     "level": 8,
     "playertime": 0
@@ -10,7 +10,7 @@
     "name": "Bjorn",
     "level": 8,
     "exp": 2292,
-    "gold": 4837,
+    "gold": 4834,
     "stat_points": 0,
     "stats": {
       "base_strength": 24,
@@ -22,6 +22,8 @@
     },
     "mining_level": 15,
     "mining_xp": 2518,
+    "woodcutting_level": 2,
+    "woodcutting_xp": 102,
     "unlocks": {
       "auto_combat": true,
       "auto_mining": true
@@ -42,19 +44,6 @@
         "type": "stackable",
         "id": "anti_poison_potion",
         "qty": 4
-      },
-      {
-        "type": "unique",
-        "item_data": {
-          "id": "bronze_pickaxe",
-          "name": "Bronze Pickaxe",
-          "type": "Tool",
-          "enhancements": [],
-          "used_slots": 0,
-          "enhancement_slots": 0,
-          "rolled_armor": null,
-          "rolled_stats": {}
-        }
       },
       {
         "type": "stackable",
@@ -165,6 +154,63 @@
         "type": "stackable",
         "id": "iron_ore",
         "qty": 2
+      },
+      {
+        "type": "unique",
+        "item_data": {
+          "id": "iron_pickaxe",
+          "name": "Iron Pickaxe",
+          "type": "Tool",
+          "enhancements": [],
+          "used_slots": 0,
+          "enhancement_slots": 0,
+          "rolled_armor": null,
+          "rolled_stats": {}
+        }
+      },
+      {
+        "type": "stackable",
+        "id": "normal_logs",
+        "qty": 6
+      },
+      {
+        "type": "unique",
+        "item_data": {
+          "id": "bronze_pickaxe",
+          "name": "Bronze Pickaxe",
+          "type": "Tool",
+          "enhancements": [],
+          "used_slots": 0,
+          "enhancement_slots": 0,
+          "rolled_armor": null,
+          "rolled_stats": {}
+        }
+      },
+      {
+        "type": "unique",
+        "item_data": {
+          "id": "steel_hatchet",
+          "name": "Steel Hatchet",
+          "type": "Tool",
+          "enhancements": [],
+          "used_slots": 0,
+          "enhancement_slots": 0,
+          "rolled_armor": null,
+          "rolled_stats": {}
+        }
+      },
+      {
+        "type": "unique",
+        "item_data": {
+          "id": "bronze_hatchet",
+          "name": "Bronze Hatchet",
+          "type": "Tool",
+          "enhancements": [],
+          "used_slots": 0,
+          "enhancement_slots": 0,
+          "rolled_armor": null,
+          "rolled_stats": {}
+        }
       }
     ],
     "equipment": {
@@ -203,8 +249,8 @@
       "legs": null,
       "feet": null,
       "weapon": {
-        "id": "iron_pickaxe",
-        "name": "Iron Pickaxe",
+        "id": "iron_hatchet",
+        "name": "Iron Hatchet",
         "type": "Tool",
         "enhancements": [],
         "used_slots": 0,

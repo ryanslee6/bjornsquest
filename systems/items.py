@@ -50,6 +50,7 @@ class Item:
         self.tool_type = data.get("tool_type", None)
         self.gathering_power = data.get("gathering_power", 0)
         self.mining_speed_bonus = data.get("mining_speed_bonus", 0.0)
+        self.woodcutting_speed_bonus = data.get("woodcutting_speed_bonus", 0.0)
 
         #rolled stats (actual values for this specific item)
         if rolled_stats:
