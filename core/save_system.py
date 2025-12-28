@@ -99,6 +99,7 @@ class SaveSystem:
             'unlocks': {
                 'auto_combat': player.auto_combat_unlocked,
                 'auto_mining': player.auto_mining_unlocked,
+                'auto_woodcutting': player.auto_woodcutting_unlocked,
             },
 
             #bounty points

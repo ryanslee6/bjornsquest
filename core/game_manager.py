@@ -1273,20 +1273,20 @@ class GameManager:
                     print("[AUTOSAVE] ✅ Game autosaved")
 
         #update mining system
-        if self.state == "mining":
-            if hasattr(self, 'mining_system'):
-                self.mining_system.update(dt, self.player)
+        
+        if hasattr(self, 'mining_system'):
+            self.mining_system.update(dt, self.player)
 
-                #check for node depletion
-                if self.current_mining_node:
-                    node_state = self.mining_system.nodes[self.current_mining_node]
-                    if node_state["depleted"] and not hasattr(self, 'mining_node_defeated'):
-                        self.mining_node_defeated = True
-                        print(f"[MINING] Node depleted!")
+            #check for node depletion
+            if self.current_mining_node:
+                node_state = self.mining_system.nodes[self.current_mining_node]
+                if node_state["depleted"] and not hasattr(self, 'mining_node_defeated'):
+                    self.mining_node_defeated = True
+                    print(f"[MINING] Node depleted!")
 
-        if self.state == "cutting":
-            if hasattr(self, 'woodcutting_system'):
-                self.woodcutting_system.update(dt, self.player)
+
+        if hasattr(self, 'woodcutting_system'):
+            self.woodcutting_system.update(dt, self.player)
 
     def draw(self):
         if self.state == "title":

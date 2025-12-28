@@ -163,11 +163,12 @@ class Player:
 
         print(f"[DEBUG] Attempting to equip: {item.name}, type: '{item.type}'")
 
-        #required level check
-        req = getattr(item, "required_level", 1)
-        if self.level < req:
-            print(f"[EQUIP] Cannot equip {item.name}: requires level {req}.")
-            return False
+        if item.type != "Tool":
+            #required level check
+            req = getattr(item, "required_level", 1)
+            if self.level < req:
+                print(f"[EQUIP] Cannot equip {item.name}: requires level {req}.")
+                return False
         
         #weapon equipping
         if item.type == "Weapon":
@@ -193,9 +194,16 @@ class Player:
 
             #check if tool requires mining level
             if hasattr(item, "required_level"):
-                if self.mining_level < item.required_level:
-                    print(f"[EQUIP] requires mining level {item.required_level}")
-                    return False
+                if hasattr(item, "tool_type"):
+                    #check appropriate profession level
+                    if item.tool_type == "Pickaxe":
+                        if self.mining_level < item.required_level:
+                            print(f"[EQUIP] Requires mining level {item.required_level}")
+                            return False
+                    elif item.tool_type == "Hatchet":
+                        if self.woodcutting_level < item.required_level:
+                            print(f"[EQUIP] Requires woodcutting level {item.required_level}")
+                            return False
                 
             #equip tool
             self.unequip_slot(slot)

@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "1.0",
-    "save_date": "2025-12-27T16:01:16.731399",
+    "save_date": "2025-12-28T07:49:43.707039",
     "character_name": "Bjorn",
     "level": 8,
     "playertime": 0
@@ -10,7 +10,7 @@
     "name": "Bjorn",
     "level": 8,
     "exp": 2292,
-    "gold": 4834,
+    "gold": 4831,
     "stat_points": 0,
     "stats": {
       "base_strength": 24,
@@ -22,11 +22,12 @@
     },
     "mining_level": 15,
     "mining_xp": 2518,
-    "woodcutting_level": 2,
-    "woodcutting_xp": 102,
+    "woodcutting_level": 11,
+    "woodcutting_xp": 1445,
     "unlocks": {
       "auto_combat": true,
-      "auto_mining": true
+      "auto_mining": true,
+      "auto_woodcutting": true
     },
     "bounty_points": 5,
     "inventory": [
@@ -171,13 +172,13 @@
       {
         "type": "stackable",
         "id": "normal_logs",
-        "qty": 6
+        "qty": 85
       },
       {
         "type": "unique",
         "item_data": {
-          "id": "bronze_pickaxe",
-          "name": "Bronze Pickaxe",
+          "id": "steel_hatchet",
+          "name": "Steel Hatchet",
           "type": "Tool",
           "enhancements": [],
           "used_slots": 0,
@@ -189,8 +190,8 @@
       {
         "type": "unique",
         "item_data": {
-          "id": "steel_hatchet",
-          "name": "Steel Hatchet",
+          "id": "bronze_pickaxe",
+          "name": "Bronze Pickaxe",
           "type": "Tool",
           "enhancements": [],
           "used_slots": 0,

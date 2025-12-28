@@ -247,7 +247,17 @@ class InventoryWindow:
             # ---------------------------------
             if text.startswith("Level Required:"):
                 req_level = int(text.split(":")[1])
-                player_level = self.game.player.level
+                
+                if item.type == "Tool" and hasattr(item, "tool_type"):
+                    if item.tool_type == "Pickaxe":
+                        player_level = self.game.player.mining_level
+                    elif item.tool_type == "Hatchet":
+                        player_level = self.game.player.woodcutting_level
+                    else:              
+                        player_level = self.game.player.level
+                else:
+                    player_level = self.game.player.level
+
                 color = (100, 255, 100) if player_level >= req_level else (255, 100, 100)
                 text = f"Requires Level: {req_level}"
 
